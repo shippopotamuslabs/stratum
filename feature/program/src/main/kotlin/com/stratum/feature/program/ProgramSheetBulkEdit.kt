@@ -50,9 +50,71 @@ internal data class ProgramSheetSelection(
 
 internal data class ProgramSheetBulkEdit(
     val days: List<CreateProgramDayUi>,
-    val undo: Map<String, List<EditLiftState>>,
+    val undo: ProgramSheetUndo,
     val selection: List<ProgramSheetLiftRef>,
 )
+
+/** Takes the sets a bulk add appended back off the lift, on its live set list. */
+internal data class RemoveBulkAddedSets(
+    val workoutLiftId: String,
+    val setIds: Set<String>,
+) : SheetLiftUndoStep {
+    override fun applyTo(lifts: List<EditLiftState>): List<EditLiftState> =
+        lifts.map { lift ->
+            if (lift.workoutLiftId != workoutLiftId) {
+                lift
+            } else {
+                lift.copy(sets = renumberSets(lift.sets.filterNot { set -> set.setId in setIds }))
+            }
+        }
+}
+
+/** Puts a set a bulk remove took off back into the lift at its old position. */
+internal data class InsertBulkRemovedSet(
+    val workoutLiftId: String,
+    val set: EditSetState,
+    val index: Int,
+) : SheetLiftUndoStep {
+    override fun applyTo(lifts: List<EditLiftState>): List<EditLiftState> =
+        lifts.map { lift ->
+            if (lift.workoutLiftId != workoutLiftId || lift.sets.any { item -> item.setId == set.setId }) {
+                lift
+            } else {
+                val sets = lift.sets.toMutableList().apply { add(index.coerceIn(0, size), set) }
+                lift.copy(sets = renumberSets(sets))
+            }
+        }
+}
+
+/**
+ * Puts back the rep band, RIR, and top-set flags a bulk write overwrote, on the
+ * live sets with the same ids. Sets added after the write keep their values.
+ */
+internal data class RestoreBulkSetValues(
+    val workoutLiftId: String,
+    val priorSets: List<EditSetState>,
+) : SheetLiftUndoStep {
+    override fun applyTo(lifts: List<EditLiftState>): List<EditLiftState> =
+        lifts.map { lift ->
+            if (lift.workoutLiftId != workoutLiftId) {
+                lift
+            } else {
+                val priorById = priorSets.associateBy { set -> set.setId }
+                lift.copy(
+                    sets =
+                        lift.sets.map { set ->
+                            val prior = priorById[set.setId] ?: return@map set
+                            set.copy(
+                                repMin = prior.repMin,
+                                repMax = prior.repMax,
+                                rirGoal = prior.rirGoal,
+                                isTopSet = prior.isTopSet,
+                            )
+                        },
+                )
+            }
+        }
+}
 
 /** Toggling off removes [target] and leaves the rest in order. Toggling on appends. */
 internal fun toggleProgramSheetSelection(
@@ -95,7 +157,17 @@ internal fun addSetToSelectedSheetLifts(
         days = days,
         selection = selection,
         applies = { _ -> true },
-        undoDayIds = { present -> present.map { ref -> ref.dayId } },
+        buildUndo = { before, next, present ->
+            bulkStepsByDay(present) { ref ->
+                val beforeIds =
+                    findProgramSheetLift(before, ref)?.sets?.map { set -> set.setId }?.toSet().orEmpty()
+                val added =
+                    findProgramSheetLift(next, ref)?.sets.orEmpty()
+                        .filter { set -> set.setId !in beforeIds }
+                        .map { set -> set.setId }
+                RemoveBulkAddedSets(workoutLiftId = ref.workoutLiftId, setIds = added.toSet())
+            }
+        },
         apply = { current, ref ->
             updateProgramDay(current, ref.dayId) { loaded ->
                 EditWorkoutLiftMutations.addSet(loaded, ref.workoutLiftId)
@@ -116,7 +188,17 @@ internal fun removeSetFromSelectedSheetLifts(
         days = days,
         selection = selection,
         applies = { lift -> lift.sets.size > 1 },
-        undoDayIds = { present -> present.map { ref -> ref.dayId } },
+        buildUndo = { before, _, present ->
+            bulkStepsByDay(present) { ref ->
+                val lift = findProgramSheetLift(before, ref)!!
+                val removed = lastSheetSet(lift)
+                InsertBulkRemovedSet(
+                    workoutLiftId = ref.workoutLiftId,
+                    set = removed,
+                    index = lift.sets.indexOfFirst { set -> set.setId == removed.setId },
+                )
+            }
+        },
         apply = { current, ref ->
             updateProgramDay(current, ref.dayId) { loaded ->
                 val lift = loaded.lifts.first { item -> item.workoutLiftId == ref.workoutLiftId }
@@ -139,20 +221,17 @@ internal fun setRirOnSelectedSheetLifts(
         days = days,
         selection = selection,
         applies = { lift -> lift.sets.any { set -> set.rirGoal != rir } },
-        undoDayIds = { present -> present.map { ref -> ref.dayId } },
+        buildUndo = { before, _, present ->
+            bulkStepsByDay(present) { ref ->
+                RestoreBulkSetValues(
+                    workoutLiftId = ref.workoutLiftId,
+                    priorSets = findProgramSheetLift(before, ref)?.sets.orEmpty(),
+                )
+            }
+        },
         apply = { current, ref ->
             updateProgramDay(current, ref.dayId) { loaded ->
-                loaded.copy(
-                    lifts =
-                        loaded.lifts.map { lift ->
-                            if (lift.workoutLiftId != ref.workoutLiftId) {
-                                lift
-                            } else {
-                                lift.copy(sets = lift.sets.map { set -> set.copy(rirGoal = rir) })
-                            }
-                        },
-                    isDirty = true,
-                )
+                EditWorkoutLiftMutations.setRirForAllSetsOnLift(loaded, ref.workoutLiftId, rir)
             }
         },
         selectionAfter = { _, next -> pruneProgramSheetSelection(selection, next) },
@@ -179,28 +258,17 @@ internal fun setRepBandOnSelectedSheetLifts(
                 repMax = repMax,
             ) != lift.sets
         },
-        undoDayIds = { present -> present.map { ref -> ref.dayId } },
+        buildUndo = { before, _, present ->
+            bulkStepsByDay(present) { ref ->
+                RestoreBulkSetValues(
+                    workoutLiftId = ref.workoutLiftId,
+                    priorSets = findProgramSheetLift(before, ref)?.sets.orEmpty(),
+                )
+            }
+        },
         apply = { current, ref ->
             updateProgramDay(current, ref.dayId) { loaded ->
-                loaded.copy(
-                    lifts =
-                        loaded.lifts.map { lift ->
-                            if (lift.workoutLiftId != ref.workoutLiftId) {
-                                lift
-                            } else {
-                                lift.copy(
-                                    sets =
-                                        applyUserRepBand(
-                                            sets = lift.sets,
-                                            scheme = lift.progressionScheme,
-                                            repMin = repMin,
-                                            repMax = repMax,
-                                        ),
-                                )
-                            }
-                        },
-                    isDirty = true,
-                )
+                EditWorkoutLiftMutations.applyRepBandToLift(loaded, ref.workoutLiftId, repMin, repMax)
             }
         },
         selectionAfter = { _, next -> pruneProgramSheetSelection(selection, next) },
@@ -217,13 +285,32 @@ internal fun moveSelectedSheetLifts(
 ): ProgramSheetBulkEdit {
     val destination = days.firstOrNull { day -> day.id == toDayId }
     if (destination == null || destination.isRest || destination.editState == null) {
-        return ProgramSheetBulkEdit(days, emptyMap(), pruneProgramSheetSelection(selection, days))
+        return ProgramSheetBulkEdit(days, ProgramSheetUndo(emptyMap()), pruneProgramSheetSelection(selection, days))
     }
     return bulkOverSelection(
         days = days,
         selection = selection,
         applies = { _ -> true },
-        undoDayIds = { present -> present.map { ref -> ref.dayId } + toDayId },
+        buildUndo = { before, _, present ->
+            val removes =
+                mapOf(
+                    toDayId to
+                        present.map { ref -> SheetLiftUndoStep.RemoveLift(ref.workoutLiftId) },
+                )
+            val inserts =
+                bulkStepsByDay(present) { ref ->
+                    val sourceLifts =
+                        before.firstOrNull { day -> day.id == ref.dayId }?.editState?.lifts.orEmpty()
+                    val lift = findProgramSheetLift(before, ref)!!
+                    SheetLiftUndoStep.InsertLift(
+                        lift = lift,
+                        originalIndex =
+                            sourceLifts.indexOfFirst { item -> item.workoutLiftId == ref.workoutLiftId },
+                        sourceLiftsBefore = sourceLifts,
+                    )
+                }
+            ProgramSheetUndo(mergeStepMaps(removes, inserts.stepsByDayId))
+        },
         apply = { current, ref ->
             val targetSize = current.firstOrNull { day -> day.id == toDayId }?.editState?.lifts?.size
             if (targetSize == null) {
@@ -283,13 +370,22 @@ internal fun deleteSelectedSheetLifts(
         days = days,
         selection = selection,
         applies = { _ -> true },
-        undoDayIds = { present -> present.map { ref -> ref.dayId } },
+        buildUndo = { before, _, present ->
+            bulkStepsByDay(present) { ref ->
+                val dayLifts =
+                    before.firstOrNull { day -> day.id == ref.dayId }?.editState?.lifts.orEmpty()
+                val lift = findProgramSheetLift(before, ref)!!
+                SheetLiftUndoStep.InsertLift(
+                    lift = lift,
+                    originalIndex =
+                        dayLifts.indexOfFirst { item -> item.workoutLiftId == ref.workoutLiftId },
+                    sourceLiftsBefore = dayLifts,
+                )
+            }
+        },
         apply = { current, ref ->
             updateProgramDay(current, ref.dayId) { loaded ->
-                loaded.copy(
-                    lifts = removeLiftAndCleanupSupersets(loaded.lifts, ref.workoutLiftId),
-                    isDirty = true,
-                )
+                EditWorkoutLiftMutations.removeLift(loaded, ref.workoutLiftId)
             }
         },
         selectionAfter = { _, next -> pruneProgramSheetSelection(selection, next) },
@@ -303,7 +399,7 @@ internal class ProgramSheetSelectionStore(
     private val scope: CoroutineScope,
     private val uiState: StateFlow<CreateProgramUiState>,
     private val applyDays: (List<CreateProgramDayUi>) -> Unit,
-    private val publishUndo: (message: String, undo: Map<String, List<EditLiftState>>) -> Unit,
+    private val publishUndo: (message: String, undo: ProgramSheetUndo) -> Unit,
     private val returnPendingCut: () -> Boolean,
 ) {
     private val _selection = MutableStateFlow(ProgramSheetSelection())
@@ -393,20 +489,50 @@ internal class ProgramSheetSelectionStore(
 private fun lastSheetSet(lift: EditLiftState): EditSetState =
     lift.sets.reduce { acc, set -> if (set.setNumber >= acc.setNumber) set else acc }
 
-private fun snapshotSheetLifts(
-    days: List<CreateProgramDayUi>,
-    dayIds: Iterable<String>,
-): Map<String, List<EditLiftState>> =
-    dayIds.distinct().mapNotNull { dayId ->
-        val lifts = days.firstOrNull { day -> day.id == dayId }?.editState?.lifts ?: return@mapNotNull null
-        dayId to lifts
-    }.toMap()
+/**
+ * Groups one undo step per ref by the ref's day. A day whose steps are all
+ * inserts gets them in ascending index order, so putting several lifts back
+ * lands each one at its counted position.
+ */
+private fun bulkStepsByDay(
+    present: List<ProgramSheetLiftRef>,
+    step: (ProgramSheetLiftRef) -> SheetLiftUndoStep,
+): ProgramSheetUndo {
+    val grouped =
+        present
+            .groupBy { ref -> ref.dayId }
+            .mapValues { (_, refs) ->
+                val steps = refs.map(step)
+                if (steps.all { item -> item is SheetLiftUndoStep.InsertLift }) {
+                    steps.sortedBy { item -> (item as SheetLiftUndoStep.InsertLift).originalIndex }
+                } else {
+                    steps
+                }
+            }
+    return ProgramSheetUndo(grouped)
+}
+
+/** Concatenates two step maps day by day, [first] steps before [second] steps. */
+private fun mergeStepMaps(
+    first: Map<String, List<SheetLiftUndoStep>>,
+    second: Map<String, List<SheetLiftUndoStep>>,
+): Map<String, List<SheetLiftUndoStep>> {
+    val merged = first.toMutableMap()
+    for ((dayId, steps) in second) {
+        merged[dayId] = merged[dayId].orEmpty() + steps
+    }
+    return merged
+}
 
 private fun bulkOverSelection(
     days: List<CreateProgramDayUi>,
     selection: List<ProgramSheetLiftRef>,
     applies: (EditLiftState) -> Boolean,
-    undoDayIds: (List<ProgramSheetLiftRef>) -> Collection<String>,
+    buildUndo: (
+        before: List<CreateProgramDayUi>,
+        next: List<CreateProgramDayUi>,
+        present: List<ProgramSheetLiftRef>,
+    ) -> ProgramSheetUndo,
     apply: (List<CreateProgramDayUi>, ProgramSheetLiftRef) -> List<CreateProgramDayUi>,
     selectionAfter: (present: List<ProgramSheetLiftRef>, next: List<CreateProgramDayUi>) -> List<ProgramSheetLiftRef>,
 ): ProgramSheetBulkEdit {
@@ -415,12 +541,15 @@ private fun bulkOverSelection(
             findProgramSheetLift(days, ref)?.let(applies) == true
         }
     if (present.isEmpty()) {
-        return ProgramSheetBulkEdit(days, emptyMap(), pruneProgramSheetSelection(selection, days))
+        return ProgramSheetBulkEdit(days, ProgramSheetUndo(emptyMap()), pruneProgramSheetSelection(selection, days))
     }
-    val undo = snapshotSheetLifts(days, undoDayIds(present))
     val next = present.fold(days, apply)
     if (next === days) {
-        return ProgramSheetBulkEdit(days, emptyMap(), pruneProgramSheetSelection(selection, days))
+        return ProgramSheetBulkEdit(days, ProgramSheetUndo(emptyMap()), pruneProgramSheetSelection(selection, days))
     }
-    return ProgramSheetBulkEdit(days = next, undo = undo, selection = selectionAfter(present, next))
+    return ProgramSheetBulkEdit(
+        days = next,
+        undo = buildUndo(days, next, present),
+        selection = selectionAfter(present, next),
+    )
 }
