@@ -78,6 +78,10 @@ class CreateProgramViewModel @Inject constructor(
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
 
+    /** Bumps only when a new sheet undo snackbar is published, not when it is dismissed. */
+    private val _sheetUndoEpoch = MutableStateFlow(0)
+    val sheetUndoEpoch: StateFlow<Int> = _sheetUndoEpoch.asStateFlow()
+
     private val _sheetClipboard = MutableStateFlow<ProgramSheetClipboard?>(null)
 
     /** Sheet tray. Not on [CreateProgramUiState], so save and [toDomainProgram] never see it. */
@@ -284,9 +288,9 @@ class CreateProgramViewModel @Inject constructor(
         _userMessage.value = null
     }
 
-    /** Sheet cut. Removes immediately. A pending cut is put back first. Not an undo entry. */
+    /** Sheet cut. Removes immediately. A pending cut is put back first, unless its day is gone. Not an undo entry. */
     fun beginSheetCut(dayId: String, workoutLiftId: String) {
-        returnPendingCut()
+        if (!returnPendingCut()) return
         val days = _uiState.value.days
         val day = days.firstOrNull { candidate -> candidate.id == dayId } ?: return
         val edit = day.editState ?: return
@@ -318,9 +322,9 @@ class CreateProgramViewModel @Inject constructor(
             )
     }
 
-    /** Sheet copy. Holds a snapshot and does not change the workout. */
+    /** Sheet copy. Holds a snapshot and does not change the workout. A pending cut is put back first. */
     fun beginSheetCopy(dayId: String, workoutLiftId: String) {
-        returnPendingCut()
+        if (!returnPendingCut()) return
         val edit =
             _uiState.value.days.firstOrNull { candidate -> candidate.id == dayId }?.editState
                 ?: return
@@ -336,7 +340,7 @@ class CreateProgramViewModel @Inject constructor(
             )
     }
 
-    /** Cancel. A cut goes back to its prior index. A copy only clears the tray. Not an undo entry. */
+    /** Cancel. A cut is inserted back into the current list. A copy only clears the tray. Not an undo entry. */
     fun cancelSheetClipboard() {
         returnPendingCut()
     }
@@ -347,7 +351,7 @@ class CreateProgramViewModel @Inject constructor(
         val target = days.firstOrNull { day -> day.id == toDayId } ?: return
         val targetEdit = target.editState ?: return
         if (target.isRest) return
-        val undo = sheetPasteUndo(days, clip, toDayId, targetEdit.lifts)
+        val undo = sheetPasteUndo(clip, toDayId, targetEdit.lifts)
         val next =
             when (clip.kind) {
                 ProgramSheetClipboardKind.Cut ->
@@ -366,12 +370,13 @@ class CreateProgramViewModel @Inject constructor(
                         toDayId = toDayId,
                         workoutLiftId = clip.lift.workoutLiftId,
                         targetPosition = targetEdit.lifts.size,
+                        sourceLift = clip.lift,
                     )
             }
         if (next === days) return
         _sheetClipboard.value = null
         sheetLiftUndo = undo
-        _userMessage.value = message
+        publishSheetUndo(publishSheetUndoMessage(currentEpoch = _sheetUndoEpoch.value, message = message))
         editor.applyEditorDays(next)
     }
 
@@ -384,7 +389,7 @@ class CreateProgramViewModel @Inject constructor(
         val lifts = day.editState?.lifts ?: return
         if (day.isRest || lifts.none { lift -> lift.workoutLiftId == workoutLiftId }) return
         sheetLiftUndo = mapOf(dayId to lifts)
-        _userMessage.value = message
+        publishSheetUndo(publishSheetUndoMessage(currentEpoch = _sheetUndoEpoch.value, message = message))
         editor.selectDay(dayId)
         removeSelectedLift(workoutLiftId)
     }
@@ -411,41 +416,44 @@ class CreateProgramViewModel @Inject constructor(
         _userMessage.value = null
     }
 
-    private fun returnPendingCut() {
-        val clip = _sheetClipboard.value ?: return
+    /**
+     * Puts a pending cut back into the current day. Returns false when that day is
+     * gone so the clipboard stays and the lift can still be pasted.
+     */
+    private fun returnPendingCut(): Boolean {
+        val clip = _sheetClipboard.value ?: return true
+        if (clip.kind != ProgramSheetClipboardKind.Cut) {
+            _sheetClipboard.value = null
+            return true
+        }
+        val days = _uiState.value.days
+        val next =
+            returnCutLiftToCurrentDay(
+                days = days,
+                fromDayId = clip.fromDayId,
+                lift = clip.lift,
+                originalIndex = clip.originalIndex,
+                sourceLiftsBefore = clip.sourceLiftsBefore,
+            )
+        if (next === days) return false
         _sheetClipboard.value = null
-        if (clip.kind != ProgramSheetClipboardKind.Cut) return
-        editor.applyEditorDays(
-            restoreProgramSheetLiftOrder(
-                days = _uiState.value.days,
-                liftsByDayId = mapOf(clip.fromDayId to clip.sourceLiftsBefore),
-            ),
-        )
+        sheetLiftUndo =
+            rebaseSheetLiftUndoForReturnedCut(
+                undo = sheetLiftUndo,
+                fromDayId = clip.fromDayId,
+                lift = clip.lift,
+                originalIndex = clip.originalIndex,
+                sourceLiftsBefore = clip.sourceLiftsBefore,
+            )
+        editor.applyEditorDays(next)
+        return true
     }
 
-    private fun sheetPasteUndo(
-        days: List<CreateProgramDayUi>,
-        clip: ProgramSheetClipboard,
-        toDayId: String,
-        targetLifts: List<EditLiftState>,
-    ): Map<String, List<EditLiftState>> =
-        when (clip.kind) {
-            ProgramSheetClipboardKind.Cut ->
-                if (clip.fromDayId == toDayId) {
-                    mapOf(toDayId to clip.sourceLiftsBefore)
-                } else {
-                    mapOf(clip.fromDayId to clip.sourceLiftsBefore, toDayId to targetLifts)
-                }
-            ProgramSheetClipboardKind.Copy -> {
-                val sourceLifts =
-                    days.firstOrNull { day -> day.id == clip.fromDayId }?.editState?.lifts
-                if (sourceLifts != null && clip.fromDayId != toDayId) {
-                    mapOf(clip.fromDayId to sourceLifts, toDayId to targetLifts)
-                } else {
-                    mapOf(toDayId to targetLifts)
-                }
-            }
-        }
+    private fun publishSheetUndo(published: SheetUndoPublish) {
+        // Message first, then the epoch, so the snackbar effect reads this text.
+        _userMessage.value = published.message
+        _sheetUndoEpoch.value = published.epoch
+    }
 
     fun linkSupersetWithPrevious(workoutLiftId: String) {
         editor.updateSelectedWorkout { loaded ->

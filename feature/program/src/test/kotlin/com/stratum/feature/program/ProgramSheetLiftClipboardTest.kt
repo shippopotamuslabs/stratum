@@ -6,6 +6,8 @@ import com.stratum.feature.program.ui.EditSetKind
 import com.stratum.feature.program.ui.EditSetState
 import com.stratum.feature.program.ui.EditWorkoutUiState
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.DisplayName
@@ -260,6 +262,304 @@ class ProgramSheetLiftClipboardTest {
             copyProgramSheetLift(days, "from", "rest", "a", 0, newWorkoutLiftId = { "nope" }),
         )
         assertSame(days, restoreProgramSheetLiftOrder(days, emptyMap()))
+    }
+
+    @Test
+    @DisplayName("Given a clipboard snapshot when copied then the insert matches it even if the live row differs or is gone")
+    fun copyPastesTheSnapshotNotTheLiveRow() {
+        val live =
+            schemeLift("a", 0).copy(
+                sets = schemeLift("a", 0).sets.map { set -> set.copy(repMin = 1, repMax = 2) },
+            )
+        val snapshot =
+            schemeLift("a", 0, GROUP).copy(
+                sets = schemeLift("a", 0).sets.map { set -> set.copy(repMin = 9, repMax = 11) },
+            )
+        val days =
+            listOf(
+                day("from", listOf(live, schemeLift("b", 1))),
+                day("to", listOf(schemeLift("there", 0))),
+            )
+
+        val copied =
+            copyProgramSheetLift(
+                days = days,
+                fromDayId = "from",
+                toDayId = "to",
+                workoutLiftId = "a",
+                targetPosition = 1,
+                sourceLift = snapshot,
+                newWorkoutLiftId = { "a-copy" },
+                newSetId = { "snap-set" },
+            )
+
+        val inserted = lift(copied, "to", "a-copy")
+        assertEquals(listOf(9, 9), inserted.sets.map { set -> set.repMin })
+        assertEquals(listOf(11, 11), inserted.sets.map { set -> set.repMax })
+        assertEquals(listOf("snap-set", "snap-set"), inserted.sets.map { set -> set.setId })
+        assertNull(inserted.supersetGroupId)
+        assertEquals(false, inserted.useRestTimerBetweenLifts)
+        assertEquals(1, lift(copied, "from", "a").sets.first().repMin)
+
+        val gone =
+            listOf(
+                day("from", listOf(schemeLift("b", 0))),
+                day("to", listOf(schemeLift("there", 0))),
+            )
+        val pasted =
+            copyProgramSheetLift(
+                days = gone,
+                fromDayId = "from",
+                toDayId = "to",
+                workoutLiftId = "a",
+                targetPosition = 1,
+                sourceLift = snapshot,
+                newWorkoutLiftId = { "a-copy" },
+                newSetId = { "snap-set" },
+            )
+
+        assertEquals(listOf("b"), ids(pasted, "from"))
+        assertEquals(listOf(9, 9), lift(pasted, "to", "a-copy").sets.map { set -> set.repMin })
+        assertEquals(listOf(11, 11), lift(pasted, "to", "a-copy").sets.map { set -> set.repMax })
+        assertNull(lift(pasted, "to", "a-copy").supersetGroupId)
+    }
+
+    @Test
+    @DisplayName("Given lifts added and edited after a cut when cancel returns it then they stay and the partner group comes back")
+    fun cancelCutInsertsIntoTheCurrentList() {
+        val cut = schemeLift("a", 0, GROUP).copy(useRestTimerBetweenLifts = true)
+        val partner = schemeLift("b", 1, GROUP).copy(useRestTimerBetweenLifts = false)
+        val before = listOf(cut, partner)
+        val afterCut = removeLiftAndCleanupSupersets(before, "a")
+        val edited =
+            afterCut.map { lift ->
+                if (lift.workoutLiftId != "b") {
+                    lift
+                } else {
+                    lift.copy(sets = lift.sets.map { set -> set.copy(repMin = 4) })
+                }
+            } + schemeLift("added", afterCut.size)
+        val days = listOf(day("from", edited), day("to", listOf(schemeLift("there", 0))))
+
+        val returned =
+            returnCutLiftToCurrentDay(
+                days = days,
+                fromDayId = "from",
+                lift = cut,
+                originalIndex = 0,
+                sourceLiftsBefore = before,
+            )
+
+        assertEquals(listOf("a", "b", "added"), ids(returned, "from"))
+        assertEquals(4, lift(returned, "from", "b").sets.first().repMin)
+        assertEquals(GROUP, lift(returned, "from", "a").supersetGroupId)
+        assertEquals(true, lift(returned, "from", "a").useRestTimerBetweenLifts)
+        assertEquals(GROUP, lift(returned, "from", "b").supersetGroupId)
+        assertEquals(false, lift(returned, "from", "b").useRestTimerBetweenLifts)
+        assertNull(lift(returned, "from", "added").supersetGroupId)
+        assertSame(days.first { day -> day.id == "to" }, returned.first { day -> day.id == "to" })
+    }
+
+    @Test
+    @DisplayName("Given a partner already in another group when cancel returns the cut then that partner is left alone")
+    fun cancelCutDoesNotOverwriteADifferentGroup() {
+        val cut = schemeLift("a", 0, GROUP)
+        val partner = schemeLift("b", 1, GROUP).copy(useRestTimerBetweenLifts = false)
+        val regrouped = partner.copy(supersetGroupId = "other", useRestTimerBetweenLifts = true)
+        val days = listOf(day("from", listOf(regrouped)))
+
+        val returned =
+            returnCutLiftToCurrentDay(
+                days = days,
+                fromDayId = "from",
+                lift = cut,
+                originalIndex = 0,
+                sourceLiftsBefore = listOf(cut, partner),
+            )
+
+        val restoredPartner = lift(returned, "from", "b")
+        assertEquals("other", restoredPartner.supersetGroupId)
+        assertEquals(true, restoredPartner.useRestTimerBetweenLifts)
+        assertEquals(GROUP, lift(returned, "from", "a").supersetGroupId)
+    }
+
+    @Test
+    @DisplayName("Given a partner that kept the group when cancel returns the cut then the prior rest flag is restored")
+    fun cancelCutRestoresThePriorRestFlag() {
+        val cut = schemeLift("a", 0, GROUP)
+        val partner = schemeLift("b", 1, GROUP).copy(useRestTimerBetweenLifts = false)
+        val days = listOf(day("from", listOf(partner.copy(useRestTimerBetweenLifts = true))))
+
+        val returned =
+            returnCutLiftToCurrentDay(
+                days = days,
+                fromDayId = "from",
+                lift = cut,
+                originalIndex = 0,
+                sourceLiftsBefore = listOf(cut, partner),
+            )
+
+        val restoredPartner = lift(returned, "from", "b")
+        assertEquals(GROUP, restoredPartner.supersetGroupId)
+        assertEquals(false, restoredPartner.useRestTimerBetweenLifts)
+    }
+
+    @Test
+    @DisplayName("Given a coerced index or a missing source day when cancel returns a cut then the lift lands or the list is unchanged")
+    fun cancelCutCoercesIndexAndNoOpsWhenTheDayIsGone() {
+        val cut = schemeLift("a", 0)
+        val days = listOf(day("from", listOf(schemeLift("b", 0), schemeLift("c", 1))))
+
+        val appended =
+            returnCutLiftToCurrentDay(
+                days = days,
+                fromDayId = "from",
+                lift = cut,
+                originalIndex = 9,
+                sourceLiftsBefore = listOf(cut),
+            )
+        val prepended =
+            returnCutLiftToCurrentDay(
+                days = days,
+                fromDayId = "from",
+                lift = cut,
+                originalIndex = -3,
+                sourceLiftsBefore = listOf(cut),
+            )
+        val gone = listOf(day("other", listOf(schemeLift("z", 0))))
+
+        assertEquals(listOf("b", "c", "a"), ids(appended, "from"))
+        assertEquals(listOf("a", "b", "c"), ids(prepended, "from"))
+        assertSame(
+            gone,
+            returnCutLiftToCurrentDay(
+                days = gone,
+                fromDayId = "from",
+                lift = cut,
+                originalIndex = 0,
+                sourceLiftsBefore = listOf(cut),
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("Given a delete snapshot taken while the cut lift is off the day when cancel rebases then undo still has the lift")
+    fun rebaseInsertsTheReturnedCutIntoTheDeleteSnapshot() {
+        val cut = schemeLift("a", 0, GROUP)
+        val partner = schemeLift("b", 1, GROUP).copy(useRestTimerBetweenLifts = false)
+        val kept = schemeLift("c", 2)
+        val detachedPartner = partner.copy(supersetGroupId = null, useRestTimerBetweenLifts = false)
+        val otherDay = listOf(schemeLift("z", 0))
+        val undo = mapOf("from" to listOf(detachedPartner, kept), "other" to otherDay)
+
+        val rebased =
+            rebaseSheetLiftUndoForReturnedCut(
+                undo = undo,
+                fromDayId = "from",
+                lift = cut,
+                originalIndex = 0,
+                sourceLiftsBefore = listOf(cut, partner, kept),
+            )
+
+        assertNotNull(rebased)
+        val from = rebased?.get("from").orEmpty()
+        assertEquals(listOf("a", "b", "c"), from.map { lift -> lift.workoutLiftId })
+        assertEquals(GROUP, from.first { lift -> lift.workoutLiftId == "b" }.supersetGroupId)
+        assertEquals(false, from.first { lift -> lift.workoutLiftId == "b" }.useRestTimerBetweenLifts)
+        assertSame(otherDay, rebased?.get("other"))
+    }
+
+    @Test
+    @DisplayName("Given a delete undo that already contains the cut lift when cancel rebases then the map is not cleared")
+    fun rebaseLeavesAValidDeleteUndoAlone() {
+        val cut = schemeLift("a", 0)
+        val snapshot = listOf(cut, schemeLift("b", 1))
+        val undo = mapOf("from" to snapshot)
+
+        assertSame(
+            undo,
+            rebaseSheetLiftUndoForReturnedCut(
+                undo = undo,
+                fromDayId = "from",
+                lift = cut,
+                originalIndex = 0,
+                sourceLiftsBefore = snapshot,
+            ),
+        )
+        assertSame(
+            undo,
+            rebaseSheetLiftUndoForReturnedCut(
+                undo = undo,
+                fromDayId = "missing",
+                lift = cut,
+                originalIndex = 0,
+                sourceLiftsBefore = snapshot,
+            ),
+        )
+        assertNull(
+            rebaseSheetLiftUndoForReturnedCut(
+                undo = null,
+                fromDayId = "from",
+                lift = cut,
+                originalIndex = 0,
+                sourceLiftsBefore = snapshot,
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("Given a copy paste when undo is snapshotted then only the destination day is stored")
+    fun copyUndoSnapshotsOnlyTheDestination() {
+        val target = listOf(schemeLift("there", 0))
+        val clip =
+            ProgramSheetClipboard(
+                kind = ProgramSheetClipboardKind.Copy,
+                fromDayId = "from",
+                lift = schemeLift("a", 0),
+                originalIndex = 0,
+                sourceLiftsBefore = listOf(schemeLift("a", 0), schemeLift("b", 1)),
+            )
+
+        val undo = sheetPasteUndo(clip = clip, toDayId = "to", targetLifts = target)
+
+        assertEquals(setOf("to"), undo.keys)
+        assertSame(target, undo.getValue("to"))
+    }
+
+    @Test
+    @DisplayName("Given a completed move when undo is snapshotted then the source list from before the cut is restored")
+    fun cutUndoStillRestoresTheSourceListFromBeforeTheMove() {
+        val source = listOf(schemeLift("a", 0), schemeLift("b", 1))
+        val target = listOf(schemeLift("there", 0))
+        val clip =
+            ProgramSheetClipboard(
+                kind = ProgramSheetClipboardKind.Cut,
+                fromDayId = "from",
+                lift = schemeLift("a", 0),
+                originalIndex = 0,
+                sourceLiftsBefore = source,
+            )
+
+        val crossDay = sheetPasteUndo(clip = clip, toDayId = "to", targetLifts = target)
+        val sameDay = sheetPasteUndo(clip = clip, toDayId = "from", targetLifts = target)
+
+        assertEquals(setOf("from", "to"), crossDay.keys)
+        assertSame(source, crossDay.getValue("from"))
+        assertSame(target, crossDay.getValue("to"))
+        assertEquals(setOf("from"), sameDay.keys)
+        assertSame(source, sameDay.getValue("from"))
+    }
+
+    @Test
+    @DisplayName("Given the same undo message published twice then each publish gets a new epoch")
+    fun sameUndoMessagePublishesTwoEpochs() {
+        val message = "Moved Bench Press"
+        val first = publishSheetUndoMessage(currentEpoch = 0, message = message)
+        val second = publishSheetUndoMessage(currentEpoch = first.epoch, message = message)
+
+        assertEquals(message, first.message)
+        assertEquals(message, second.message)
+        assertNotEquals(first.epoch, second.epoch)
     }
 
     private fun movingSets(days: List<CreateProgramDayUi>): List<String> =

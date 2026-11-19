@@ -27,6 +27,7 @@ fun CreateProgramRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
+    val sheetUndoEpoch by viewModel.sheetUndoEpoch.collectAsStateWithLifecycle()
     val sheetClipboard by viewModel.sheetClipboard.collectAsStateWithLifecycle()
 
     LaunchedEffect(startInScratch, finishOnboarding, programId) {
@@ -55,6 +56,7 @@ fun CreateProgramRoute(
         CreateProgramScreen(
         state = state,
         userMessage = userMessage,
+        sheetUndoEpoch = sheetUndoEpoch,
         callbacks =
             CreateProgramScreenCallbacks(
                 onBack = {

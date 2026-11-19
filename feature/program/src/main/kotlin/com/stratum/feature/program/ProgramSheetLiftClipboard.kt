@@ -7,8 +7,10 @@ internal enum class ProgramSheetClipboardKind { Cut, Copy }
 
 /**
  * In-memory sheet tray. Not part of [CreateProgramUiState] and not saved.
- * [sourceLiftsBefore] is the source day's lift list from before a cut, so Cancel
- * can put that day back, including superset ids.
+ * [sourceLiftsBefore] is the source day's lift list from before a cut.
+ * Cancel inserts [lift] into the current list and uses this snapshot only to
+ * put the cut's superset id back on partners. A completed move's Undo still
+ * restores the whole list.
  */
 internal data class ProgramSheetClipboard(
     val kind: ProgramSheetClipboardKind,
@@ -58,8 +60,10 @@ internal fun moveProgramSheetLift(
 /**
  * Copies [workoutLiftId] onto [toDayId] at [targetPosition].
  * The source day is unchanged. The copy has a new lift id, new set ids, and no superset.
+ * [sourceLift] is the clipboard snapshot. When it is non-null and its id matches,
+ * that object is copied even if the live row was edited or removed.
  * [fromDayId] == [toDayId] appends when [targetPosition] is the current size.
- * Rest days and missing ids return [days].
+ * A rest day, a missing destination, or a missing source with no snapshot returns [days].
  */
 internal fun copyProgramSheetLift(
     days: List<CreateProgramDayUi>,
@@ -67,18 +71,13 @@ internal fun copyProgramSheetLift(
     toDayId: String,
     workoutLiftId: String,
     targetPosition: Int,
+    sourceLift: EditLiftState? = null,
     newWorkoutLiftId: () -> String = ::newWorkoutLiftId,
     newSetId: () -> String = { UUID.randomUUID().toString() },
 ): List<CreateProgramDayUi> {
     val toDay = days.firstOrNull { day -> day.id == toDayId } ?: return days
     if (toDay.isRest || toDay.editState == null) return days
-    val source =
-        days
-            .firstOrNull { day -> day.id == fromDayId }
-            ?.editState
-            ?.lifts
-            ?.firstOrNull { lift -> lift.workoutLiftId == workoutLiftId }
-            ?: return days
+    val source = sheetCopySource(days, fromDayId, workoutLiftId, sourceLift) ?: return days
     val copied =
         source.copy(
             workoutLiftId = newWorkoutLiftId(),
@@ -112,6 +111,107 @@ internal fun restoreProgramSheetLiftOrder(
         }
     return if (changed) next else days
 }
+
+/**
+ * Inserts [lift] at [originalIndex] into the current lifts of [fromDayId].
+ * Lifts added after the cut stay. Partners that still share the cut's superset
+ * in [sourceLiftsBefore] get that id and their prior rest-timer flag back,
+ * unless they already have a different group. A missing day returns [days].
+ */
+internal fun returnCutLiftToCurrentDay(
+    days: List<CreateProgramDayUi>,
+    fromDayId: String,
+    lift: EditLiftState,
+    originalIndex: Int,
+    sourceLiftsBefore: List<EditLiftState>,
+): List<CreateProgramDayUi> {
+    val index = days.indexOfFirst { day -> day.id == fromDayId }
+    if (index < 0) return days
+    val day = days[index]
+    val edit = day.editState ?: return days
+    val inserted =
+        insertCutLiftIntoCurrent(
+            current = edit.lifts,
+            lift = lift,
+            originalIndex = originalIndex,
+            sourceLiftsBefore = sourceLiftsBefore,
+        )
+    val updated =
+        day.copy(
+            isRest = false,
+            editState = edit.copy(lifts = inserted, isDirty = true),
+        )
+    return days.toMutableList().also { copy -> copy[index] = updated }
+}
+
+/**
+ * Same insert as [returnCutLiftToCurrentDay], on a lift list.
+ * [originalIndex] is coerced into the current list.
+ */
+internal fun insertCutLiftIntoCurrent(
+    current: List<EditLiftState>,
+    lift: EditLiftState,
+    originalIndex: Int,
+    sourceLiftsBefore: List<EditLiftState>,
+): List<EditLiftState> {
+    val at = originalIndex.coerceIn(0, current.size)
+    val withLift = current.toMutableList().apply { add(at, lift) }
+    return restoreCutSupersetPartners(withLift, lift, sourceLiftsBefore)
+        .mapIndexed { index, item -> item.copy(position = index) }
+}
+
+/**
+ * Puts the returned cut into a sheet-delete snapshot that was taken while the
+ * lift was already off the day. A snapshot that already has the lift, or a map
+ * that does not include [fromDayId], is returned unchanged. Null stays null.
+ */
+internal fun rebaseSheetLiftUndoForReturnedCut(
+    undo: Map<String, List<EditLiftState>>?,
+    fromDayId: String,
+    lift: EditLiftState,
+    originalIndex: Int,
+    sourceLiftsBefore: List<EditLiftState>,
+): Map<String, List<EditLiftState>>? {
+    if (undo == null) return null
+    val snapshot = undo[fromDayId] ?: return undo
+    if (snapshot.any { item -> item.workoutLiftId == lift.workoutLiftId }) return undo
+    val rebased =
+        insertCutLiftIntoCurrent(
+            current = snapshot,
+            lift = lift,
+            originalIndex = originalIndex,
+            sourceLiftsBefore = sourceLiftsBefore,
+        )
+    return undo + (fromDayId to rebased)
+}
+
+/**
+ * Undo lists for a sheet paste. Copy only snapshots [toDayId]. Cut still
+ * restores [ProgramSheetClipboard.sourceLiftsBefore] for the source day.
+ */
+internal fun sheetPasteUndo(
+    clip: ProgramSheetClipboard,
+    toDayId: String,
+    targetLifts: List<EditLiftState>,
+): Map<String, List<EditLiftState>> =
+    when (clip.kind) {
+        ProgramSheetClipboardKind.Cut ->
+            if (clip.fromDayId == toDayId) {
+                mapOf(toDayId to clip.sourceLiftsBefore)
+            } else {
+                mapOf(clip.fromDayId to clip.sourceLiftsBefore, toDayId to targetLifts)
+            }
+        ProgramSheetClipboardKind.Copy -> mapOf(toDayId to targetLifts)
+    }
+
+/** Next snackbar identity. The same [message] still advances [currentEpoch]. */
+internal fun publishSheetUndoMessage(currentEpoch: Int, message: String): SheetUndoPublish =
+    SheetUndoPublish(epoch = currentEpoch + 1, message = message)
+
+internal data class SheetUndoPublish(
+    val epoch: Int,
+    val message: String,
+)
 
 private fun canPasteOnto(days: List<CreateProgramDayUi>, toDayId: String): Boolean {
     val toDay = days.firstOrNull { day -> day.id == toDayId } ?: return false
@@ -178,6 +278,47 @@ private fun insertLift(
             day.copy(
                 isRest = false,
                 editState = edit.copy(lifts = inserted, isDirty = true),
+            )
+        }
+    }
+}
+
+private fun sheetCopySource(
+    days: List<CreateProgramDayUi>,
+    fromDayId: String,
+    workoutLiftId: String,
+    sourceLift: EditLiftState?,
+): EditLiftState? =
+    if (sourceLift != null && sourceLift.workoutLiftId == workoutLiftId) {
+        sourceLift
+    } else {
+        days
+            .firstOrNull { day -> day.id == fromDayId }
+            ?.editState
+            ?.lifts
+            ?.firstOrNull { lift -> lift.workoutLiftId == workoutLiftId }
+    }
+
+private fun restoreCutSupersetPartners(
+    lifts: List<EditLiftState>,
+    cut: EditLiftState,
+    sourceLiftsBefore: List<EditLiftState>,
+): List<EditLiftState> {
+    val groupId = cut.supersetGroupId ?: return lifts
+    val priorById = sourceLiftsBefore.associateBy { partner -> partner.workoutLiftId }
+    return lifts.map { item ->
+        val prior = priorById[item.workoutLiftId]
+        val leaveAlone =
+            item.workoutLiftId == cut.workoutLiftId ||
+                prior == null ||
+                prior.supersetGroupId != groupId ||
+                (item.supersetGroupId != null && item.supersetGroupId != groupId)
+        if (leaveAlone) {
+            item
+        } else {
+            item.copy(
+                supersetGroupId = groupId,
+                useRestTimerBetweenLifts = prior.useRestTimerBetweenLifts,
             )
         }
     }

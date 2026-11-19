@@ -61,6 +61,7 @@ import com.stratum.feature.program.CreateProgramStep
 import com.stratum.feature.program.CreateProgramUiState
 import com.stratum.feature.program.ProgramEditorSurface
 import com.stratum.feature.program.R
+import kotlinx.coroutines.ensureActive
 
 @Composable
 fun CreateProgramScreen(
@@ -68,6 +69,7 @@ fun CreateProgramScreen(
     callbacks: CreateProgramScreenCallbacks,
     modifier: Modifier = Modifier,
     userMessage: String? = null,
+    sheetUndoEpoch: Int = 0,
 ) {
     val isEditor = state.step == CreateProgramStep.Editor
     val topBarTitle =
@@ -83,6 +85,7 @@ fun CreateProgramScreen(
     val sheetUndoHost =
         rememberProgramSheetUndoHost(
             userMessage = userMessage,
+            sheetUndoEpoch = sheetUndoEpoch,
             step = state.step,
             editorSurface = state.editorSurface,
             onUndo = callbacks.onUndoSheetLift,
@@ -349,6 +352,7 @@ fun CreateProgramScreen(
 @Composable
 private fun rememberProgramSheetUndoHost(
     userMessage: String?,
+    sheetUndoEpoch: Int,
     step: CreateProgramStep,
     editorSurface: ProgramEditorSurface,
     onUndo: () -> Unit,
@@ -360,7 +364,7 @@ private fun rememberProgramSheetUndoHost(
         userMessage != null &&
             step == CreateProgramStep.Editor &&
             editorSurface == ProgramEditorSurface.Sheet
-    LaunchedEffect(userMessage) {
+    LaunchedEffect(sheetUndoEpoch) {
         val message = userMessage ?: return@LaunchedEffect
         if (!visible) {
             onDismiss()
@@ -371,6 +375,8 @@ private fun rememberProgramSheetUndoHost(
                 message = message,
                 actionLabel = undoLabel,
             )
+        // A newer epoch cancels this call. Cancellation must not clear that epoch's undo.
+        ensureActive()
         if (result == SnackbarResult.ActionPerformed) {
             onUndo()
         } else {
