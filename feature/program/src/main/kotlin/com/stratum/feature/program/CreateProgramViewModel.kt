@@ -137,6 +137,23 @@ class CreateProgramViewModel @Inject constructor(
             generationLogger = generationLogger,
         )
 
+    private val sheetSelectionStore =
+        ProgramSheetSelectionStore(
+            scope = viewModelScope,
+            uiState = _uiState,
+            applyDays = editor::applyEditorDays,
+            publishUndo = { message, undo ->
+                sheetLiftUndo = undo
+                publishSheetUndo(
+                    publishSheetUndoMessage(currentEpoch = _sheetUndoEpoch.value, message = message),
+                )
+            },
+            returnPendingCut = ::returnPendingCut,
+        )
+
+    /** Sheet multi-select. Not on [CreateProgramUiState], so save and [toDomainProgram] never see it. */
+    internal val sheetSelection: StateFlow<ProgramSheetSelection> = sheetSelectionStore.selection
+
     init {
         viewModelScope.launch {
             observeLiftCatalog().collect { lifts ->
@@ -345,6 +362,35 @@ class CreateProgramViewModel @Inject constructor(
         returnPendingCut()
     }
 
+    fun beginSheetSelect(dayId: String?, workoutLiftId: String?) =
+        sheetSelectionStore.begin(
+            if (dayId == null || workoutLiftId == null) {
+                null
+            } else {
+                ProgramSheetLiftRef(dayId = dayId, workoutLiftId = workoutLiftId)
+            },
+        )
+
+    fun toggleSheetLift(dayId: String, workoutLiftId: String) {
+        sheetSelectionStore.toggle(ProgramSheetLiftRef(dayId = dayId, workoutLiftId = workoutLiftId))
+    }
+
+    /** Leaves select mode. Does not change lifts and does not push an undo entry. */
+    fun clearSheetSelection() = sheetSelectionStore.clear()
+
+    fun addSetToSheetSelection(message: String) = sheetSelectionStore.addSet(message)
+
+    fun removeSetFromSheetSelection(message: String) = sheetSelectionStore.removeSet(message)
+
+    fun setRirOnSheetSelection(rir: Int, message: String) = sheetSelectionStore.setRir(rir, message)
+
+    fun setRepBandOnSheetSelection(repMin: Int, repMax: Int, message: String) =
+        sheetSelectionStore.setRepBand(repMin, repMax, message)
+
+    fun moveSheetSelection(toDayId: String, message: String) = sheetSelectionStore.moveTo(toDayId, message)
+
+    fun deleteSheetSelection(message: String) = sheetSelectionStore.delete(message)
+
     fun pasteSheetLift(toDayId: String, message: String) {
         val clip = _sheetClipboard.value ?: return
         val days = _uiState.value.days
@@ -534,14 +580,20 @@ class CreateProgramViewModel @Inject constructor(
     fun startReorderLifts(onNavigate: (workoutId: String) -> Unit) =
         editor.startReorderLifts(onNavigate)
 
-    fun saveToLibrary(onDone: () -> Unit) =
+    fun saveToLibrary(onDone: () -> Unit) {
+        clearSheetSelection()
         editor.persist(CreateProgramPersistMode.SaveToLibrary, onDone)
+    }
 
-    fun saveChanges(onDone: () -> Unit) =
+    fun saveChanges(onDone: () -> Unit) {
+        clearSheetSelection()
         editor.persist(CreateProgramPersistMode.SavePreservingActive, onDone)
+    }
 
-    fun activate(onDone: () -> Unit) =
+    fun activate(onDone: () -> Unit) {
+        clearSheetSelection()
         editor.persist(CreateProgramPersistMode.Activate, onDone)
+    }
 
     fun requestDiscard(): Boolean = editor.requestDiscard()
 

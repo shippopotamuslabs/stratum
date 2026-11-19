@@ -15,7 +15,7 @@ import com.stratum.core.ui.theme.rememberStratumHaptics
 @Composable
 fun StratumCheckbox(
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+    onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
@@ -23,10 +23,13 @@ fun StratumCheckbox(
     val haptics = rememberStratumHaptics()
     Checkbox(
         checked = checked,
-        onCheckedChange = { newChecked ->
-            haptics.toggle(newChecked)
-            onCheckedChange(newChecked)
-        },
+        onCheckedChange =
+            onCheckedChange?.let { change ->
+                { newChecked ->
+                    haptics.toggle(newChecked)
+                    change(newChecked)
+                }
+            },
         enabled = enabled,
         modifier = modifier,
         colors =
