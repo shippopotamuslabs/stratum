@@ -65,6 +65,8 @@ data class CreateProgramScreenCallbacks(
     val onSaveToLibrary: () -> Unit = {},
     val onSaveChanges: () -> Unit = {},
     val onActivate: () -> Unit = {},
+    /** Sheet registers the open bulk rep pad. Null clears it when the sheet leaves. */
+    val onRegisterOpenBulkRepCommit: ((() -> Unit)?) -> Unit = {},
     val onConfirmDiscard: () -> Unit = {},
     val onDismissDiscard: () -> Unit = {},
     val onConfirmActiveSessionDiscard: () -> Unit = {},

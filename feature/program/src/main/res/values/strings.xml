@@ -127,7 +127,7 @@
     <string name="create_program_sheet_move_to">Move to</string>
     <string name="create_program_sheet_delete">Delete</string>
     <string name="create_program_sheet_added_set">Added 1 set to each selected lift.</string>
-    <string name="create_program_sheet_removed_set">Removed 1 set from each selected lift.</string>
+    <string name="create_program_sheet_removed_set">Removed 1 set.</string>
     <string name="create_program_sheet_set_rir_done">Set RIR to %1$d.</string>
     <string name="create_program_sheet_set_reps_done">Set reps to %1$d to %2$d.</string>
     <string name="create_program_sheet_moved_selection">Moved the selected lifts.</string>

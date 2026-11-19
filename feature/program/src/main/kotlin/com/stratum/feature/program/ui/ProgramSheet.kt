@@ -62,6 +62,7 @@ import com.stratum.feature.program.ProgramSheetClipboardKind
 import com.stratum.feature.program.ProgramSheetLiftRef
 import com.stratum.feature.program.ProgramSheetLiftStep
 import com.stratum.feature.program.ProgramSheetLiftTarget
+import com.stratum.feature.program.ProgramSheetPadMoment
 import com.stratum.feature.program.ProgramSheetRow
 import com.stratum.feature.program.R
 import com.stratum.feature.program.SheetPlacedItem
@@ -70,6 +71,7 @@ import com.stratum.feature.program.programSheetAdjacentLift
 import com.stratum.feature.program.programSheetAnchorIndex
 import com.stratum.feature.program.programSheetFollowDayId
 import com.stratum.feature.program.programSheetLiftIndex
+import com.stratum.feature.program.programSheetPadAction
 import com.stratum.feature.program.programSheetRows
 import com.stratum.feature.program.sheetStickyHeaderOverlapPx
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -132,14 +134,21 @@ internal fun ProgramSheet(
     var liftActionsLiftId by remember { mutableStateOf<String?>(null) }
     var showProgressionSchemeExplainer by remember { mutableStateOf(false) }
     LaunchedEffect(selection.active) {
+        val moment = if (selection.active) ProgramSheetPadMoment.EnterSelect else ProgramSheetPadMoment.LeaveSelect
+        dockHost.applySheetPad(programSheetPadAction(moment, dockHost.openSetId()))
         if (!selection.active) return@LaunchedEffect
         expanded = null
         rirSetId = null
         liftActionsLiftId = null
-        dockHost.commitIfValidThenClose()
     }
     DisposableEffect(dockHost) {
-        onDispose { dockHost.commitIfValidThenClose() }
+        callbacks.onRegisterOpenBulkRepCommit {
+            dockHost.applySheetPad(programSheetPadAction(ProgramSheetPadMoment.SaveProceeding, dockHost.openSetId()))
+        }
+        onDispose {
+            dockHost.applySheetPad(programSheetPadAction(ProgramSheetPadMoment.HostDisposed, dockHost.openSetId()))
+            callbacks.onRegisterOpenBulkRepCommit(null)
+        }
     }
     val dockHeight =
         rememberOverlayDockListBinding(

@@ -12,6 +12,24 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** Rep-pad set id for a bulk band. Not a real set. The sheet dock opens on this id. */
+internal const val PROGRAM_SHEET_BULK_REP_SET_ID = "program-sheet-bulk-rep"
+
+/** Why an open rep pad is being asked to leave or stay. */
+internal enum class ProgramSheetPadMoment {
+    EnterSelect,
+    LeaveSelect,
+    SaveProceeding,
+    HostDisposed,
+}
+
+/** What the sheet should do with the pad that is open at [ProgramSheetPadMoment]. */
+internal enum class ProgramSheetPadAction {
+    CommitIfValidThenClose,
+    DiscardWithoutCommit,
+    None,
+}
+
 /**
  * One selected sheet lift. Order in [ProgramSheetSelection.ordered] is selection order.
  * Not stored on [CreateProgramUiState] and not read by [toDomainProgram].
@@ -108,7 +126,10 @@ internal fun removeSetFromSelectedSheetLifts(
         selectionAfter = { _, next -> pruneProgramSheetSelection(selection, next) },
     )
 
-/** Writes [rir] onto every set of each selected lift. Rep ranges stay. Backoff sets are included. */
+/**
+ * Writes [rir] onto every set of each selected lift. Rep ranges stay. Backoff sets are included.
+ * Returns [days] when every selected set already has [rir].
+ */
 internal fun setRirOnSelectedSheetLifts(
     days: List<CreateProgramDayUi>,
     selection: List<ProgramSheetLiftRef>,
@@ -117,7 +138,7 @@ internal fun setRirOnSelectedSheetLifts(
     bulkOverSelection(
         days = days,
         selection = selection,
-        applies = { _ -> true },
+        applies = { lift -> lift.sets.any { set -> set.rirGoal != rir } },
         undoDayIds = { present -> present.map { ref -> ref.dayId } },
         apply = { current, ref ->
             updateProgramDay(current, ref.dayId) { loaded ->
@@ -137,7 +158,10 @@ internal fun setRirOnSelectedSheetLifts(
         selectionAfter = { present, _ -> present },
     )
 
-/** One band through [applyUserRepBand] per selected lift. Same helper as edit-workout setReps. */
+/**
+ * One band through [applyUserRepBand] per selected lift. Same helper as edit-workout setReps.
+ * Returns [days] when that helper would leave every selected lift unchanged.
+ */
 internal fun setRepBandOnSelectedSheetLifts(
     days: List<CreateProgramDayUi>,
     selection: List<ProgramSheetLiftRef>,
@@ -147,7 +171,14 @@ internal fun setRepBandOnSelectedSheetLifts(
     bulkOverSelection(
         days = days,
         selection = selection,
-        applies = { _ -> true },
+        applies = { lift ->
+            applyUserRepBand(
+                sets = lift.sets,
+                scheme = lift.progressionScheme,
+                repMin = repMin,
+                repMax = repMax,
+            ) != lift.sets
+        },
         undoDayIds = { present -> present.map { ref -> ref.dayId } },
         apply = { current, ref ->
             updateProgramDay(current, ref.dayId) { loaded ->
@@ -211,6 +242,36 @@ internal fun moveSelectedSheetLifts(
             present.map { ref -> ProgramSheetLiftRef(dayId = toDayId, workoutLiftId = ref.workoutLiftId) }
         },
     )
+}
+
+/**
+ * Bulk band commits only for a save that is about to persist.
+ * Entering select still commits a normal pad, and drops a leftover bulk pad.
+ * Leaving select or disposing the sheet drops a bulk pad so the next select cannot apply it.
+ */
+internal fun programSheetPadAction(
+    moment: ProgramSheetPadMoment,
+    openSetId: String?,
+): ProgramSheetPadAction {
+    val bulkOpen = openSetId == PROGRAM_SHEET_BULK_REP_SET_ID
+    return when (moment) {
+        ProgramSheetPadMoment.EnterSelect ->
+            when {
+                openSetId == null -> ProgramSheetPadAction.None
+                bulkOpen -> ProgramSheetPadAction.DiscardWithoutCommit
+                else -> ProgramSheetPadAction.CommitIfValidThenClose
+            }
+        ProgramSheetPadMoment.LeaveSelect ->
+            if (bulkOpen) ProgramSheetPadAction.DiscardWithoutCommit else ProgramSheetPadAction.None
+        ProgramSheetPadMoment.SaveProceeding ->
+            if (bulkOpen) ProgramSheetPadAction.CommitIfValidThenClose else ProgramSheetPadAction.None
+        ProgramSheetPadMoment.HostDisposed ->
+            when {
+                openSetId == null -> ProgramSheetPadAction.None
+                bulkOpen -> ProgramSheetPadAction.DiscardWithoutCommit
+                else -> ProgramSheetPadAction.CommitIfValidThenClose
+            }
+    }
 }
 
 /** Removes each selected lift with [removeLiftAndCleanupSupersets]. No selected lift returns [days]. */

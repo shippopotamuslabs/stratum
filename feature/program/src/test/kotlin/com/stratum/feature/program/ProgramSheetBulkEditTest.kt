@@ -8,6 +8,7 @@ import com.stratum.feature.program.ui.EditSetKind
 import com.stratum.feature.program.ui.EditSetState
 import com.stratum.feature.program.ui.EditWorkoutUiState
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotSame
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -254,6 +255,149 @@ class ProgramSheetBulkEditTest {
         assertSame(days, moveSelectedSheetLifts(days, listOf(ProgramSheetLiftRef("from", "missing")), "to").days)
         assertSame(days, addSetToSelectedSheetLifts(days, listOf(ProgramSheetLiftRef("from", "missing"))).days)
         assertSame(days, removeSetFromSelectedSheetLifts(days, listOf(ProgramSheetLiftRef("from", "a"))).days)
+    }
+
+    @Test
+    @DisplayName("Given selected sets that already have the RIR when RIR is set then the day list is the same instance")
+    fun unchangedRirReturnsTheSameDayList() {
+        val days =
+            listOf(
+                day(
+                    "a",
+                    listOf(
+                        lift(
+                            "pick",
+                            listOf(
+                                set("pick-1", 1, rir = 4),
+                                set("pick-2", 2, min = 0, max = 0, rir = 4, top = false),
+                            ),
+                        ),
+                    ),
+                ),
+                day("b", listOf(lift("far", listOf(set("far-1", 1, rir = 4))))),
+            )
+        val selection = listOf(ProgramSheetLiftRef("a", "pick"), ProgramSheetLiftRef("b", "far"))
+
+        val edited = setRirOnSelectedSheetLifts(days, selection, rir = 4)
+
+        assertSame(days, edited.days)
+        assertEquals(emptyMap<String, List<EditLiftState>>(), edited.undo)
+    }
+
+    @Test
+    @DisplayName("Given one set that already has the RIR and one that does not when RIR is set then only the change is new")
+    fun changedRirReturnsNewDaysAndUndo() {
+        val same = day("a", listOf(lift("same", listOf(set("same-1", 1, rir = 4)))))
+        val other = day("b", listOf(lift("other", listOf(set("other-1", 1, rir = 1)))))
+        val days = listOf(same, other)
+        val selection = listOf(ProgramSheetLiftRef("a", "same"), ProgramSheetLiftRef("b", "other"))
+
+        val edited = setRirOnSelectedSheetLifts(days, selection, rir = 4)
+
+        assertNotSame(days, edited.days)
+        assertSame(same, edited.days.first())
+        assertEquals(listOf(4), lift(edited.days, "b", "other").sets.map { set -> set.rirGoal })
+        assertEquals(setOf("b"), edited.undo.keys)
+    }
+
+    @Test
+    @DisplayName("Given selected sets that already have the band after applyUserRepBand when reps are set then the day list is the same instance")
+    fun unchangedRepBandReturnsTheSameDayList() {
+        val doubleLift =
+            lift(
+                "double",
+                listOf(
+                    set("double-top", 1, min = 6, max = 10, top = true),
+                    set("double-back", 2, min = 0, max = 0, top = false, kind = EditSetKind.MyoRepMatch),
+                ),
+                scheme = ProgressionScheme.Double,
+            )
+        val linear =
+            lift(
+                "linear",
+                listOf(
+                    set("linear-1", 1, min = 6, max = 10, top = true),
+                    set("linear-2", 2, min = 6, max = 10, top = false),
+                ),
+                scheme = ProgressionScheme.Linear,
+            )
+        val floored =
+            lift(
+                "low",
+                listOf(set("low-1", 1, min = 5, max = 8, top = true)),
+                scheme = ProgressionScheme.Linear,
+            )
+        val days = listOf(day("a", listOf(doubleLift, linear)), day("b", listOf(floored)))
+
+        val already =
+            setRepBandOnSelectedSheetLifts(
+                days,
+                listOf(ProgramSheetLiftRef("a", "double"), ProgramSheetLiftRef("a", "linear")),
+                repMin = 6,
+                repMax = 10,
+            )
+        assertSame(days, already.days)
+        assertEquals(emptyMap<String, List<EditLiftState>>(), already.undo)
+
+        val flooredOnly =
+            setRepBandOnSelectedSheetLifts(
+                days,
+                listOf(ProgramSheetLiftRef("b", "low")),
+                repMin = 4,
+                repMax = 8,
+            )
+        assertSame(days, flooredOnly.days)
+    }
+
+    @Test
+    @DisplayName("Given a selected band that still changes a lift when reps are set then the day list is new and undo is kept")
+    fun changedRepBandReturnsNewDaysAndUndo() {
+        val days = listOf(day("a", listOf(lift("linear", sets("linear", 2), scheme = ProgressionScheme.Linear))))
+        val selection = listOf(ProgramSheetLiftRef("a", "linear"))
+
+        val edited = setRepBandOnSelectedSheetLifts(days, selection, repMin = 6, repMax = 10)
+
+        assertNotSame(days, edited.days)
+        assertEquals(setOf("a"), edited.undo.keys)
+        assertEquals(
+            listOf(6 to 10, 6 to 10),
+            lift(edited.days, "a", "linear").sets.map { set -> set.repMin to set.repMax },
+        )
+    }
+
+    @Test
+    @DisplayName("Given an open pad when select mode or a save changes then only a proceeding save commits a bulk band")
+    fun padActionCommitsBulkBandOnlyOnProceedingSave() {
+        assertEquals(
+            ProgramSheetPadAction.CommitIfValidThenClose,
+            programSheetPadAction(ProgramSheetPadMoment.SaveProceeding, PROGRAM_SHEET_BULK_REP_SET_ID),
+        )
+        assertEquals(
+            ProgramSheetPadAction.DiscardWithoutCommit,
+            programSheetPadAction(ProgramSheetPadMoment.EnterSelect, PROGRAM_SHEET_BULK_REP_SET_ID),
+        )
+        assertEquals(
+            ProgramSheetPadAction.DiscardWithoutCommit,
+            programSheetPadAction(ProgramSheetPadMoment.LeaveSelect, PROGRAM_SHEET_BULK_REP_SET_ID),
+        )
+        assertEquals(
+            ProgramSheetPadAction.DiscardWithoutCommit,
+            programSheetPadAction(ProgramSheetPadMoment.HostDisposed, PROGRAM_SHEET_BULK_REP_SET_ID),
+        )
+        assertEquals(
+            ProgramSheetPadAction.CommitIfValidThenClose,
+            programSheetPadAction(ProgramSheetPadMoment.EnterSelect, "set-1"),
+        )
+        assertEquals(
+            ProgramSheetPadAction.CommitIfValidThenClose,
+            programSheetPadAction(ProgramSheetPadMoment.HostDisposed, "set-1"),
+        )
+        assertEquals(ProgramSheetPadAction.None, programSheetPadAction(ProgramSheetPadMoment.LeaveSelect, "set-1"))
+        assertEquals(ProgramSheetPadAction.None, programSheetPadAction(ProgramSheetPadMoment.SaveProceeding, "set-1"))
+        assertEquals(ProgramSheetPadAction.None, programSheetPadAction(ProgramSheetPadMoment.EnterSelect, null))
+        assertEquals(ProgramSheetPadAction.None, programSheetPadAction(ProgramSheetPadMoment.LeaveSelect, null))
+        assertEquals(ProgramSheetPadAction.None, programSheetPadAction(ProgramSheetPadMoment.SaveProceeding, null))
+        assertEquals(ProgramSheetPadAction.None, programSheetPadAction(ProgramSheetPadMoment.HostDisposed, null))
     }
 
     private fun sheetSetTotal(days: List<CreateProgramDayUi>): Int =

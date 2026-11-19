@@ -38,7 +38,9 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.rememberStratumHaptics
 import com.stratum.core.ui.theme.stratumDockTopRule
 import com.stratum.feature.program.CreateProgramDayUi
+import com.stratum.feature.program.PROGRAM_SHEET_BULK_REP_SET_ID
 import com.stratum.feature.program.ProgramSheetLiftRef
+import com.stratum.feature.program.ProgramSheetPadAction
 import com.stratum.feature.program.ProgramSheetSelection
 import com.stratum.feature.program.R
 import com.stratum.feature.program.findProgramSheetLift
@@ -49,7 +51,13 @@ internal val LocalProgramSheetSelection =
 
 internal val ProgramSheetSelectionSlot = 48.dp
 
-internal const val PROGRAM_SHEET_BULK_REP_SET_ID = "program-sheet-bulk-rep"
+internal fun EditWorkoutDockHostState.applySheetPad(action: ProgramSheetPadAction) {
+    when (action) {
+        ProgramSheetPadAction.CommitIfValidThenClose -> commitIfValidThenClose()
+        ProgramSheetPadAction.DiscardWithoutCommit -> discardWithoutCommit()
+        ProgramSheetPadAction.None -> Unit
+    }
+}
 
 /**
  * Bulk bar plus the RIR sheet, rep pad, and move picker it opens.

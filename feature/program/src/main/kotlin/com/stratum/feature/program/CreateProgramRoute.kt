@@ -136,6 +136,7 @@ fun CreateProgramRoute(
                 onSaveToLibrary = { viewModel.saveToLibrary(onFinished) },
                 onSaveChanges = { viewModel.saveChanges(onFinished) },
                 onActivate = { viewModel.activate(onFinished) },
+                onRegisterOpenBulkRepCommit = viewModel::setOpenBulkRepCommit,
                 onConfirmDiscard = {
                     viewModel.dismissDiscard()
                     onBackClick()

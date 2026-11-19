@@ -154,7 +154,14 @@ class CreateProgramViewModel @Inject constructor(
     /** Sheet multi-select. Not on [CreateProgramUiState], so save and [toDomainProgram] never see it. */
     internal val sheetSelection: StateFlow<ProgramSheetSelection> = sheetSelectionStore.selection
 
+    private var openBulkRepCommit: (() -> Unit)? = null
+
     init {
+        editor.onPersistProceeding = {
+            // Band first, while select mode is still on. Clear only once the save is writing.
+            openBulkRepCommit?.invoke()
+            sheetSelectionStore.clear()
+        }
         viewModelScope.launch {
             observeLiftCatalog().collect { lifts ->
                 editor.liftCatalog = lifts
@@ -378,6 +385,11 @@ class CreateProgramViewModel @Inject constructor(
     /** Leaves select mode. Does not change lifts and does not push an undo entry. */
     fun clearSheetSelection() = sheetSelectionStore.clear()
 
+    /** Sheet registers the open bulk rep pad. Null clears it when the sheet leaves. */
+    fun setOpenBulkRepCommit(commit: (() -> Unit)?) {
+        openBulkRepCommit = commit
+    }
+
     fun addSetToSheetSelection(message: String) = sheetSelectionStore.addSet(message)
 
     fun removeSetFromSheetSelection(message: String) = sheetSelectionStore.removeSet(message)
@@ -581,17 +593,14 @@ class CreateProgramViewModel @Inject constructor(
         editor.startReorderLifts(onNavigate)
 
     fun saveToLibrary(onDone: () -> Unit) {
-        clearSheetSelection()
         editor.persist(CreateProgramPersistMode.SaveToLibrary, onDone)
     }
 
     fun saveChanges(onDone: () -> Unit) {
-        clearSheetSelection()
         editor.persist(CreateProgramPersistMode.SavePreservingActive, onDone)
     }
 
     fun activate(onDone: () -> Unit) {
-        clearSheetSelection()
         editor.persist(CreateProgramPersistMode.Activate, onDone)
     }
 
