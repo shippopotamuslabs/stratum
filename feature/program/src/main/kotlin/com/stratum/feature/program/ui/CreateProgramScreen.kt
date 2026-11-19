@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
@@ -59,6 +60,7 @@ import com.stratum.feature.program.CreateProgramStep
 import com.stratum.feature.program.CreateProgramUiState
 import com.stratum.feature.program.R
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
 fun CreateProgramScreen(
@@ -350,21 +352,34 @@ private fun rememberProgramSheetUndoHost(
             onDismiss()
             return@LaunchedEffect
         }
+        // Indefinite so the action stays tappable. SnackbarDuration has no 3s preset.
         val result =
-            snackbarHostState.showSnackbar(
-                message = message,
-                actionLabel = undoLabel,
-            )
+            withTimeoutOrNull(SHEET_UNDO_TIMEOUT_MS) {
+                snackbarHostState.showSnackbar(
+                    message = message,
+                    actionLabel = undoLabel,
+                    duration = SnackbarDuration.Indefinite,
+                )
+            }
         // A newer epoch cancels this call. Cancellation must not clear that epoch's undo.
         ensureActive()
-        if (result == SnackbarResult.ActionPerformed) {
-            onUndo()
-        } else {
-            onDismiss()
+        when (result) {
+            SnackbarResult.ActionPerformed -> onUndo()
+            SnackbarResult.Dismissed -> onDismiss()
+            null -> {
+                val current = snackbarHostState.currentSnackbarData
+                if (current?.visuals?.message == message) {
+                    current.dismiss()
+                }
+                ensureActive()
+                onDismiss()
+            }
         }
     }
     return if (visible) snackbarHostState else null
 }
+
+private const val SHEET_UNDO_TIMEOUT_MS = 3_000L
 
 @Composable
 private fun ChooseCreatePathContent(
