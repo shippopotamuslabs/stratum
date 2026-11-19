@@ -13,7 +13,8 @@ internal data class ProgramSheetVolumeStrip(
     val workoutDayId: String?,
     val workoutName: String,
     val workoutSetTotal: Int?,
-    val programMuscles: List<ProgramSheetMuscleSets>,
+    val workoutMuscles: List<ProgramSheetMuscleSets>,
+    val programSetTotal: Int,
 )
 
 internal data class ProgramSheetVolumeColumn(
@@ -57,14 +58,15 @@ internal fun programSheetVolumeStrip(
     days: List<CreateProgramDayUi>,
     visibleDayId: String?,
 ): ProgramSheetVolumeStrip {
-    val muscles = metrics.programMuscleSets()
+    val programSetTotal = metrics.workouts.sumOf { workout -> workout.setTotal }
     val visible = visibleWorkout(days, metrics, visibleDayId)
     if (visible == null) {
         return ProgramSheetVolumeStrip(
             workoutDayId = null,
             workoutName = "",
             workoutSetTotal = null,
-            programMuscles = muscles,
+            workoutMuscles = emptyList(),
+            programSetTotal = programSetTotal,
         )
     }
     val (day, workout) = visible
@@ -72,7 +74,8 @@ internal fun programSheetVolumeStrip(
         workoutDayId = day.id,
         workoutName = day.name,
         workoutSetTotal = workout.setTotal,
-        programMuscles = muscles,
+        workoutMuscles = programSheetMuscleSets(workout.upperVolumeByMuscle + workout.lowerVolumeByMuscle),
+        programSetTotal = programSetTotal,
     )
 }
 
@@ -122,10 +125,19 @@ internal fun programSheetVolumeMuscleLabel(name: String, sets: Double): String {
     return "$name $count"
 }
 
-private fun ProgramSheetMetrics.programMuscleSets(): List<ProgramSheetMuscleSets> =
-    (programUpperVolumeByMuscle + programLowerVolumeByMuscle)
+/** Plaintext per-muscle sets, same fractional credit as the volume cards. */
+internal fun programSheetVolumeMuscleLine(muscles: List<ProgramSheetMuscleSets>): String =
+    muscles.joinToString(separator = VOLUME_ITEM_GAP) { muscle ->
+        programSheetVolumeMuscleLabel(muscle.muscleName, muscle.sets)
+    }
+
+internal fun programSheetMuscleSets(cards: List<StratumMuscleVolumeCardState>): List<ProgramSheetMuscleSets> =
+    cards
         .filter { card -> card.setCount != ZERO_SETS }
         .map { card -> ProgramSheetMuscleSets(muscleName = card.displayName, sets = card.setCount) }
+
+private fun ProgramSheetMetrics.programMuscleSets(): List<ProgramSheetMuscleSets> =
+    programSheetMuscleSets(programUpperVolumeByMuscle + programLowerVolumeByMuscle)
 
 private fun EditWorkoutUiState.Loaded.toSheetWorkoutMetrics(dayId: String): ProgramSheetWorkoutMetrics =
     ProgramSheetWorkoutMetrics(
@@ -143,3 +155,4 @@ private fun ProgramSheetWorkoutMetrics?.setCountFor(muscleName: String): Double 
 
 private const val ZERO_SETS = 0.0
 private const val ONE_DECIMAL = "%.1f"
+private const val VOLUME_ITEM_GAP = " - "

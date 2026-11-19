@@ -2,6 +2,8 @@ package com.stratum.feature.program.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -71,8 +73,10 @@ import com.stratum.feature.program.programSheetAdjacentLift
 import com.stratum.feature.program.programSheetAnchorIndex
 import com.stratum.feature.program.programSheetFollowDayId
 import com.stratum.feature.program.programSheetLiftIndex
+import com.stratum.feature.program.programSheetMuscleSets
 import com.stratum.feature.program.programSheetPadAction
 import com.stratum.feature.program.programSheetRows
+import com.stratum.feature.program.programSheetVolumeMuscleLine
 import com.stratum.feature.program.sheetStickyHeaderOverlapPx
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -628,6 +632,10 @@ private fun ProgramSheetStickyWorkout(
         day = day,
         setTotal = edit.lifts.sumOf { lift -> lift.sets.size },
         minutes = edit.estimatedDurationMinutes,
+        muscleLine =
+            programSheetVolumeMuscleLine(
+                programSheetMuscleSets(edit.upperVolumeByMuscle + edit.lowerVolumeByMuscle),
+            ),
         onAddLift = { onAddLift(day.id) },
         onOpenMenu = { onOpenMenu(day.id) },
         onPaste = pasteMessage?.let { message -> { onPaste(day.id, message) } },
@@ -639,6 +647,7 @@ private fun ProgramSheetWorkoutHeader(
     day: CreateProgramDayUi,
     setTotal: Int,
     minutes: Int,
+    muscleLine: String,
     onAddLift: () -> Unit,
     onOpenMenu: () -> Unit,
     onPaste: (() -> Unit)? = null,
@@ -690,6 +699,25 @@ private fun ProgramSheetWorkoutHeader(
             muted = true,
             style = StratumThemeAccessor.typography.bodyMedium,
         )
+        if (muscleLine.isNotEmpty()) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StratumText(
+                    text = muscleLine,
+                    muted = true,
+                    style =
+                        StratumThemeAccessor.typography.bodyMedium.copy(
+                            fontFeatureSettings = SHEET_TABULAR_FIGURES,
+                        ),
+                    maxLines = 1,
+                )
+            }
+        }
         if (onPaste != null) {
             StratumTextButton(
                 text = stringResource(R.string.create_program_sheet_paste_here),
@@ -986,6 +1014,7 @@ internal fun sheetRestLabel(sets: List<EditSetState>): String {
 }
 
 private const val SHEET_WORKOUT_HEADER_KEY_PREFIX = "header-"
+private const val SHEET_TABULAR_FIGURES = "tnum"
 private const val LIFT_COLUMN_WEIGHT = 0.40f
 private const val SETS_COLUMN_WEIGHT = 0.12f
 private const val REPS_COLUMN_WEIGHT = 0.16f

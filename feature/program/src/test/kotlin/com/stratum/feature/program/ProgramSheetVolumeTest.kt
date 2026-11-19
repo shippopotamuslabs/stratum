@@ -26,15 +26,16 @@ class ProgramSheetVolumeTest {
     private val estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase()
 
     @Test
-    @DisplayName("strip muscles are the program cards, including the secondary credit")
-    fun stripMusclesMatchProgramCards() {
+    @DisplayName("strip muscles are the visible workout, and the program total stays labeled")
+    fun stripMusclesFollowVisibleWorkout() {
         val days = fixtureDays()
         val sheet = derive(days)
         val strip = programSheetVolumeStrip(sheet, days, DAY_A)
-        val cards = sheet.programCards().filter { card -> card.setCount != 0.0 }
+        val workout = sheet.workouts.single { it.dayId == DAY_A }
+        val cards = workout.cards().filter { card -> card.setCount != 0.0 }
 
-        assertEquals(cards.map { card -> card.displayName }, strip.programMuscles.map { muscle -> muscle.muscleName })
-        strip.programMuscles.forEach { muscle ->
+        assertEquals(cards.map { card -> card.displayName }, strip.workoutMuscles.map { muscle -> muscle.muscleName })
+        strip.workoutMuscles.forEach { muscle ->
             val card = cards.single { it.displayName == muscle.muscleName }
             assertEquals(card.setCount, muscle.sets)
         }
@@ -42,11 +43,20 @@ class ProgramSheetVolumeTest {
         val primary = cards.single { card -> card.muscle == MuscleGroup.Chest }
         val secondary = cards.single { card -> card.muscle == MuscleGroup.Tricep }
         assertNotEquals(primary.setCount, secondary.setCount)
-        assertEquals(primary.setCount, strip.programMuscles.single { it.muscleName == primary.displayName }.sets)
-        assertEquals(secondary.setCount, strip.programMuscles.single { it.muscleName == secondary.displayName }.sets)
+        assertEquals(primary.setCount, strip.workoutMuscles.single { it.muscleName == primary.displayName }.sets)
+        assertEquals(secondary.setCount, strip.workoutMuscles.single { it.muscleName == secondary.displayName }.sets)
         assertEquals(DAY_A, strip.workoutDayId)
         assertEquals("Push", strip.workoutName)
-        assertEquals(sheet.workouts.single { it.dayId == DAY_A }.setTotal, strip.workoutSetTotal)
+        assertEquals(workout.setTotal, strip.workoutSetTotal)
+        assertEquals(sheet.workouts.sumOf { it.setTotal }, strip.programSetTotal)
+
+        val legs = programSheetVolumeStrip(sheet, days, DAY_B)
+        assertNotEquals(strip.workoutMuscles, legs.workoutMuscles)
+        assertEquals(strip.programSetTotal, legs.programSetTotal)
+        assertEquals(
+            sheet.workouts.single { it.dayId == DAY_B }.cards().filter { it.setCount != 0.0 }.map { it.displayName },
+            legs.workoutMuscles.map { it.muscleName },
+        )
     }
 
     @Test
@@ -75,16 +85,21 @@ class ProgramSheetVolumeTest {
         )
 
         val changedName =
-            after.programCards().first { card ->
-                before.programCards().single { it.displayName == card.displayName }.setCount != card.setCount
+            afterWorkout.cards().first { card ->
+                beforeWorkout.cards().single { it.displayName == card.displayName }.setCount != card.setCount
             }.displayName
         val stripDelta =
-            stripAfter.programMuscles.single { it.muscleName == changedName }.sets -
-                stripBefore.programMuscles.single { it.muscleName == changedName }.sets
-        val programDelta =
-            after.programCards().single { it.displayName == changedName }.setCount -
-                before.programCards().single { it.displayName == changedName }.setCount
-        assertEquals(programDelta, stripDelta)
+            stripAfter.workoutMuscles.single { it.muscleName == changedName }.sets -
+                stripBefore.workoutMuscles.single { it.muscleName == changedName }.sets
+        val workoutMuscleDelta =
+            afterWorkout.cards().single { it.displayName == changedName }.setCount -
+                beforeWorkout.cards().single { it.displayName == changedName }.setCount
+        assertEquals(workoutMuscleDelta, stripDelta)
+        assertEquals(after.workouts.sumOf { it.setTotal }, stripAfter.programSetTotal)
+        assertEquals(
+            after.workouts.sumOf { it.setTotal } - before.workouts.sumOf { it.setTotal },
+            stripAfter.programSetTotal - stripBefore.programSetTotal,
+        )
 
         val row = pivotAfter.muscleNames.indexOf(changedName)
         val cellDelta =
@@ -97,7 +112,7 @@ class ProgramSheetVolumeTest {
     }
 
     @Test
-    @DisplayName("rest is not a pivot column and a missing day keeps the program line")
+    @DisplayName("rest is not a pivot column and a missing day keeps the program total")
     fun restAndMissingDay() {
         val days = fixtureDays()
         val sheet = derive(days)
@@ -111,12 +126,14 @@ class ProgramSheetVolumeTest {
         assertNull(missing.workoutDayId)
         assertEquals("", missing.workoutName)
         assertNull(missing.workoutSetTotal)
-        assertEquals(present.programMuscles, missing.programMuscles)
+        assertEquals(emptyList<ProgramSheetMuscleSets>(), missing.workoutMuscles)
+        assertEquals(present.programSetTotal, missing.programSetTotal)
 
         val rest = programSheetVolumeStrip(sheet, days, DAY_REST)
         assertNull(rest.workoutSetTotal)
         assertEquals("", rest.workoutName)
-        assertEquals(present.programMuscles, rest.programMuscles)
+        assertEquals(emptyList<ProgramSheetMuscleSets>(), rest.workoutMuscles)
+        assertEquals(present.programSetTotal, rest.programSetTotal)
     }
 
     @Test
@@ -233,8 +250,9 @@ class ProgramSheetVolumeTest {
         assertEquals(listOf(programQuad), metrics.programLowerVolumeByMuscle)
         assertEquals(listOf(pushChest), metrics.workouts.single { it.dayId == DAY_A }.upperVolumeByMuscle)
         assertEquals(SETS_A, metrics.workouts.single { it.dayId == DAY_A }.setTotal)
-        assertEquals(programChest.setCount, strip.programMuscles.single { it.muscleName == "Chest" }.sets)
-        assertEquals(programQuad.setCount, strip.programMuscles.single { it.muscleName == "Quads" }.sets)
+        assertEquals(pushChest.setCount, strip.workoutMuscles.single { it.muscleName == "Chest" }.sets)
+        assertEquals(false, strip.workoutMuscles.any { muscle -> muscle.muscleName == "Quads" })
+        assertEquals(SETS_A, strip.programSetTotal)
     }
 
     @Test
@@ -244,6 +262,16 @@ class ProgramSheetVolumeTest {
         val fractional = programSheetVolumeMuscleLabel("Back", 2.5)
         assertEquals("Back 2.5", fractional)
         assertFalse(fractional.contains(','))
+        assertEquals(
+            "Chest 4.0 - Back 4.0 - Triceps 4.0",
+            programSheetVolumeMuscleLine(
+                listOf(
+                    ProgramSheetMuscleSets("Chest", 4.0),
+                    ProgramSheetMuscleSets("Back", 4.0),
+                    ProgramSheetMuscleSets("Triceps", 4.0),
+                ),
+            ),
+        )
     }
 
     private fun derive(days: List<CreateProgramDayUi>): ProgramSheetMetrics =

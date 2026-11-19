@@ -37,14 +37,15 @@ import com.stratum.feature.program.CreateProgramUiState
 import com.stratum.feature.program.ProgramSheetVolumePivot
 import com.stratum.feature.program.R
 import com.stratum.feature.program.programSheetMetricsFromEditorDays
-import com.stratum.feature.program.programSheetVolumeMuscleLabel
+import com.stratum.feature.program.programSheetVolumeMuscleLine
 import com.stratum.feature.program.programSheetVolumePivot
 import com.stratum.feature.program.programSheetVolumeStrip
 import java.util.Locale
 
 /**
- * Pinned program-volume line under the day jump strip. Tap opens the muscle
- * pivot. Open state stays in this composable, not on editor state.
+ * Pinned volume line under the day jump strip. The muscle line is the visible
+ * workout. The program set total stays labeled beside it. Tap opens the pivot.
+ * Open state stays in this composable, not on editor state.
  */
 @Composable
 internal fun ProgramSheetVolumeStrip(
@@ -55,10 +56,7 @@ internal fun ProgramSheetVolumeStrip(
     val strip = programSheetVolumeStrip(metrics, state.days, state.selectedDayId)
     val pivot = programSheetVolumePivot(metrics, state.days)
     var open by remember { mutableStateOf(false) }
-    val muscleLine =
-        strip.programMuscles.joinToString(separator = VOLUME_ITEM_GAP) { muscle ->
-            programSheetVolumeMuscleLabel(muscle.muscleName, muscle.sets)
-        }
+    val muscleLine = programSheetVolumeMuscleLine(strip.workoutMuscles)
     Column(
         modifier =
             modifier
@@ -72,6 +70,7 @@ internal fun ProgramSheetVolumeStrip(
         ProgramSheetVolumeStripHeader(
             workoutName = strip.workoutName,
             workoutSetTotal = strip.workoutSetTotal,
+            programSetTotal = strip.programSetTotal,
         )
         if (muscleLine.isNotEmpty()) {
             Row(
@@ -156,6 +155,7 @@ private fun VolumePivotRow(content: @Composable RowScope.() -> Unit) {
 private fun ProgramSheetVolumeStripHeader(
     workoutName: String,
     workoutSetTotal: Int?,
+    programSetTotal: Int,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -164,6 +164,25 @@ private fun ProgramSheetVolumeStripHeader(
         StratumText(
             text = stringResource(R.string.edit_workout_volume_title),
             style = StratumThemeAccessor.typography.bodyLarge,
+            maxLines = 1,
+        )
+        StratumText(
+            text = stringResource(R.string.edit_workout_volume_scope_program),
+            modifier = Modifier.padding(start = StratumSpacing.s12),
+            muted = true,
+            style = StratumThemeAccessor.typography.bodyMedium,
+            maxLines = 1,
+        )
+        StratumText(
+            text =
+                pluralStringResource(
+                    R.plurals.create_program_sheet_set_total,
+                    programSetTotal,
+                    programSetTotal,
+                ),
+            modifier = Modifier.padding(start = StratumSpacing.s4),
+            muted = true,
+            style = StratumThemeAccessor.typography.bodyMedium,
             maxLines = 1,
         )
         if (workoutName.isNotEmpty()) {
@@ -248,7 +267,6 @@ private fun VolumeCountCell(sets: Double) {
     }
 }
 
-private const val VOLUME_ITEM_GAP = " - "
 private const val TABULAR_FIGURES = "tnum"
 private const val ONE_DECIMAL = "%.1f"
 private val VolumeNameMinWidth = StratumSpacing.s64 + StratumSpacing.s32
