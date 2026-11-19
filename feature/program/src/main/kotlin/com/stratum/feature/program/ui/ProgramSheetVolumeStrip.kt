@@ -5,8 +5,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -103,34 +107,49 @@ internal fun ProgramSheetVolumePivotTable(
     pivot: ProgramSheetVolumePivot,
     modifier: Modifier = Modifier,
 ) {
+    val muscleHeader = stringResource(R.string.edit_workout_volume_title)
+    val programHeader = stringResource(R.string.edit_workout_volume_scope_program)
     Column(
         modifier =
             modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState()),
     ) {
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            verticalAlignment = Alignment.Top,
-        ) {
-            VolumeNameColumn(
-                header = stringResource(R.string.edit_workout_volume_title),
-                names = pivot.muscleNames,
-            )
-            pivot.workoutColumns.zip(pivot.columnTotals).forEach { (column, total) ->
-                VolumeCountColumn(
-                    header = column.workoutName,
-                    cells = column.cells,
-                    total = total,
-                )
+        Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+            Column {
+                VolumePivotRow {
+                    VolumeNameCell(text = muscleHeader, header = true)
+                    pivot.workoutColumns.forEach { column ->
+                        VolumeNameCell(text = column.workoutName, header = true, centered = true, countWidth = true)
+                    }
+                    VolumeNameCell(text = programHeader, header = true, centered = true, countWidth = true)
+                }
+                pivot.muscleNames.forEachIndexed { index, name ->
+                    VolumePivotRow {
+                        VolumeNameCell(text = name, header = false)
+                        pivot.workoutColumns.forEach { column ->
+                            VolumeCountCell(column.cells[index])
+                        }
+                        VolumeCountCell(pivot.programTotals[index])
+                    }
+                }
+                VolumePivotRow {
+                    VolumeNameCell(text = "", header = true)
+                    pivot.columnTotals.forEach { total -> VolumeCountCell(total) }
+                    VolumeCountCell(pivot.cornerTotal)
+                }
             }
-            VolumeCountColumn(
-                header = stringResource(R.string.edit_workout_volume_scope_program),
-                cells = pivot.programTotals,
-                total = pivot.cornerTotal,
-            )
         }
     }
+}
+
+@Composable
+private fun VolumePivotRow(content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier = Modifier.heightIn(min = StratumSpacing.s32).height(IntrinsicSize.Min),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
 }
 
 @Composable
@@ -178,41 +197,17 @@ private fun ProgramSheetVolumeStripHeader(
 }
 
 @Composable
-private fun VolumeNameColumn(
-    header: String,
-    names: List<String>,
-) {
-    Column {
-        VolumeNameCell(text = header, header = true)
-        names.forEach { name -> VolumeNameCell(text = name, header = false) }
-        VolumeNameCell(text = "", header = true)
-    }
-}
-
-@Composable
-private fun VolumeCountColumn(
-    header: String,
-    cells: List<Double>,
-    total: Double,
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        VolumeNameCell(text = header, header = true, centered = true)
-        cells.forEach { sets -> VolumeCountCell(sets) }
-        VolumeCountCell(total)
-    }
-}
-
-@Composable
 private fun VolumeNameCell(
     text: String,
     header: Boolean,
     centered: Boolean = false,
+    countWidth: Boolean = false,
 ) {
     Box(
         modifier =
             Modifier
-                .widthIn(min = VolumeNameMinWidth)
-                .heightIn(min = StratumSpacing.s32)
+                .widthIn(min = if (countWidth) VolumeCountMinWidth else VolumeNameMinWidth)
+                .fillMaxHeight()
                 .sheetHairline()
                 .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
         contentAlignment = if (centered) Alignment.Center else Alignment.CenterStart,
@@ -239,7 +234,7 @@ private fun VolumeCountCell(sets: Double) {
         modifier =
             Modifier
                 .widthIn(min = VolumeCountMinWidth)
-                .heightIn(min = StratumSpacing.s32)
+                .fillMaxHeight()
                 .sheetHairline()
                 .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
         contentAlignment = Alignment.Center,
