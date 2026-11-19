@@ -298,6 +298,7 @@ class ProgramSheetBulkEditTest {
         assertSame(same, edited.days.first())
         assertEquals(listOf(4), lift(edited.days, "b", "other").sets.map { set -> set.rirGoal })
         assertEquals(setOf("b"), edited.undo.keys)
+        assertEquals(selection, edited.selection)
     }
 
     @Test
@@ -362,6 +363,33 @@ class ProgramSheetBulkEditTest {
         assertEquals(
             listOf(6 to 10, 6 to 10),
             lift(edited.days, "a", "linear").sets.map { set -> set.repMin to set.repMax },
+        )
+        assertEquals(selection, edited.selection)
+    }
+
+    @Test
+    @DisplayName("Given one lift already on the band when reps are set then both lifts stay selected")
+    fun changedRepBandKeepsLiftsThatAlreadyMatched() {
+        val matched =
+            lift(
+                "matched",
+                listOf(
+                    set("matched-1", 1, min = 6, max = 10, top = true),
+                    set("matched-2", 2, min = 6, max = 10, top = false),
+                ),
+                scheme = ProgressionScheme.Linear,
+            )
+        val other = lift("other", sets("other", 2), scheme = ProgressionScheme.Linear)
+        val days = listOf(day("a", listOf(matched, other)))
+        val selection = listOf(ProgramSheetLiftRef("a", "matched"), ProgramSheetLiftRef("a", "other"))
+
+        val edited = setRepBandOnSelectedSheetLifts(days, selection, repMin = 6, repMax = 10)
+
+        assertNotSame(days, edited.days)
+        assertEquals(selection, edited.selection)
+        assertEquals(
+            listOf(6 to 10, 6 to 10),
+            lift(edited.days, "a", "other").sets.map { set -> set.repMin to set.repMax },
         )
     }
 

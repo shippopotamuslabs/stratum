@@ -319,7 +319,7 @@ internal fun ProgramSheet(
                 sheetCallbacks.onReorderLifts()
             },
             onSelect =
-                if (menuDay.isRest || menuDay.editState == null) {
+                if (selection.active || menuDay.isRest || menuDay.editState == null) {
                     null
                 } else {
                     {

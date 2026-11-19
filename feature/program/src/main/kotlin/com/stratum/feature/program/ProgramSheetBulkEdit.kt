@@ -155,7 +155,7 @@ internal fun setRirOnSelectedSheetLifts(
                 )
             }
         },
-        selectionAfter = { present, _ -> present },
+        selectionAfter = { _, next -> pruneProgramSheetSelection(selection, next) },
     )
 
 /**
@@ -203,7 +203,7 @@ internal fun setRepBandOnSelectedSheetLifts(
                 )
             }
         },
-        selectionAfter = { present, _ -> present },
+        selectionAfter = { _, next -> pruneProgramSheetSelection(selection, next) },
     )
 
 /**
