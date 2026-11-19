@@ -766,41 +766,33 @@ private fun ProgramSheetClipboardTray(
 
 @Composable
 private fun ProgramSheetColumnHeader(reserveSelection: Boolean = false) {
-    if (reserveSelection) {
-        Row(
-            modifier =
-                Modifier
-                    .background(StratumThemeAccessor.colors.surfaceBase)
-                    .sheetHairline()
-                    .padding(top = StratumSpacing.s8, end = StratumSpacing.s16, bottom = StratumSpacing.s8),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Spacer(modifier = Modifier.width(ProgramSheetSelectionSlot))
-            SheetLine(
-                lift = stringResource(R.string.create_program_sheet_column_lift),
-                sets = stringResource(R.string.create_program_sheet_column_sets),
-                reps = stringResource(R.string.create_program_sheet_column_reps),
-                rir = stringResource(R.string.edit_workout_column_rir),
-                rest = stringResource(R.string.edit_workout_column_rest),
-                header = true,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        return
-    }
-    SheetLine(
-        lift = stringResource(R.string.create_program_sheet_column_lift),
-        sets = stringResource(R.string.create_program_sheet_column_sets),
-        reps = stringResource(R.string.create_program_sheet_column_reps),
-        rir = stringResource(R.string.edit_workout_column_rir),
-        rest = stringResource(R.string.edit_workout_column_rest),
-        header = true,
+    Row(
         modifier =
             Modifier
                 .background(StratumThemeAccessor.colors.surfaceBase)
                 .sheetHairline()
-                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s8),
-    )
+                .padding(
+                    top = StratumSpacing.s8,
+                    end = StratumSpacing.s16,
+                    bottom = StratumSpacing.s8,
+                    start = if (reserveSelection) 0.dp else StratumSpacing.s16,
+                ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (reserveSelection) {
+            Spacer(modifier = Modifier.width(ProgramSheetSelectionSlot))
+        }
+        SheetLine(
+            lift = stringResource(R.string.create_program_sheet_column_lift),
+            sets = stringResource(R.string.create_program_sheet_column_sets),
+            reps = stringResource(R.string.create_program_sheet_column_reps),
+            rir = stringResource(R.string.edit_workout_column_rir),
+            rest = stringResource(R.string.edit_workout_column_rest),
+            header = true,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(modifier = Modifier.width(ProgramSheetLiftActionsSlot))
+    }
 }
 
 @Composable
@@ -810,31 +802,42 @@ private fun ProgramSheetLiftRow(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
-    val background =
-        if (zebra) {
-            StratumThemeAccessor.colors.surfaceSunken
-        } else {
-            StratumThemeAccessor.colors.surfaceBase
-        }
-    SheetLine(
-        lift = lift.name,
-        sets = lift.sets.size.toString(),
-        reps = sheetRepLabel(lift.sets),
-        rir = sheetRirLabel(lift.sets),
-        rest = sheetRestLabel(lift.sets),
-        header = false,
+    val colors = StratumThemeAccessor.colors
+    val background = if (zebra) colors.surfaceSunken else colors.surfaceBase
+    Row(
         modifier =
             Modifier
+                .fillMaxWidth()
                 .background(background)
                 .sheetHairline()
-                .combinedClickable(
-                    role = Role.Button,
-                    onClick = onClick,
-                    onLongClick = onLongClick,
-                )
                 .heightIn(min = 48.dp)
-                .padding(horizontal = StratumSpacing.s16),
-    )
+                .padding(start = StratumSpacing.s16, end = StratumSpacing.s16),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SheetLine(
+            lift = lift.name,
+            sets = lift.sets.size.toString(),
+            reps = sheetRepLabel(lift.sets),
+            rir = sheetRirLabel(lift.sets),
+            rest = sheetRestLabel(lift.sets),
+            header = false,
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .combinedClickable(
+                        role = Role.Button,
+                        onClick = onClick,
+                        onLongClick = onLongClick,
+                    ),
+        )
+        StratumIconButton(onClick = onLongClick) {
+            Icon(
+                painter = painterResource(CoreUiR.drawable.ic_more_vert),
+                contentDescription = stringResource(CoreUiR.string.edit_workout_lift_menu),
+                tint = colors.textPrimary,
+            )
+        }
+    }
 }
 
 @Composable
@@ -996,6 +999,9 @@ internal fun sheetRestLabel(sets: List<EditSetState>): String {
 
 private const val SHEET_WORKOUT_HEADER_KEY_PREFIX = "header-"
 private const val SHEET_TABULAR_FIGURES = "tnum"
+
+/** Matches [StratumIconButton]'s 40dp container so lift columns stay under the header. */
+internal val ProgramSheetLiftActionsSlot = 40.dp
 private const val LIFT_COLUMN_WEIGHT = 0.40f
 private const val SETS_COLUMN_WEIGHT = 0.12f
 private const val REPS_COLUMN_WEIGHT = 0.16f
