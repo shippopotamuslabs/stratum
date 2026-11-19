@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -31,6 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.LiftThumbnail
+import com.stratum.core.ui.component.StratumSyncedItemStrip
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -61,27 +60,34 @@ internal fun LiftNavigatorRow(
 ) {
     val addLiftCd = stringResource(R.string.workout_screen_add_lift)
     val groups = remember(lifts) { groupLiftsForNavigator(lifts) }
-    // Fixed row height so the underline slot is never clipped by LazyRow measurement.
-    LazyRow(
+    val selectedIndex =
+        groups
+            .indexOfFirst { group -> group.any { it.workoutLiftId == primaryLiftId } }
+            .takeIf { it >= 0 }
+    // Fixed row height so the underline slot is never clipped by strip measurement.
+    StratumSyncedItemStrip(
+        itemCount = groups.size,
+        selectedIndex = selectedIndex,
         modifier = modifier.height(LiftNavigatorRowHeight),
         contentPadding = PaddingValues(horizontal = StratumSpacing.s16),
         horizontalArrangement = Arrangement.spacedBy(LiftNavigatorTabSpacing),
         verticalAlignment = Alignment.Top,
-    ) {
-        items(groups, key = { group -> group.joinToString("-") { it.workoutLiftId } }) { group ->
-            LiftNavigatorGroup(
-                lifts = group,
-                primaryLiftId = primaryLiftId,
-                showUnderline = group.any { it.workoutLiftId in underlinedLiftIds },
-                onLiftClick = onLiftClick,
-            )
-        }
-        item(key = "add-lift") {
+        itemKey = { index -> groups[index].joinToString("-") { it.workoutLiftId } },
+        trailingKey = "add-lift",
+        trailingContent = {
             LiftNavigatorAddTab(
                 contentDescription = addLiftCd,
                 onClick = onAddLift,
             )
-        }
+        },
+    ) { index, _ ->
+        val group = groups[index]
+        LiftNavigatorGroup(
+            lifts = group,
+            primaryLiftId = primaryLiftId,
+            showUnderline = group.any { it.workoutLiftId in underlinedLiftIds },
+            onLiftClick = onLiftClick,
+        )
     }
 }
 
