@@ -77,7 +77,7 @@ private suspend fun LazyListState.revealSelectedStripItem(index: Int) {
             .first { it.totalItemsCount > 0 }
     val composed = layout.visibleItemsInfo.firstOrNull { it.index == index }
     if (composed != null) {
-        animateComposedStripReveal(index, composed, layout)
+        animateComposedStripReveal(composed, layout)
     } else {
         revealOffscreenStripItem(index, layout)
     }
@@ -123,7 +123,7 @@ private suspend fun LazyListState.animateOvershotStripReveal(
     visible: List<LazyListItemInfo>,
     layout: LazyListLayoutInfo,
 ) {
-    val delta =
+    animateDelta(
         stripRevealOvershootDelta(
             targetIndex = index,
             anchorIndex = anchor.index,
@@ -131,10 +131,8 @@ private suspend fun LazyListState.animateOvershotStripReveal(
             stepSizePx = visible.minOf { it.size },
             spacingPx = stripVisibleSpacingPx(visible),
             viewportEndPx = layout.viewportEndOffset,
-        )
-    if (delta != 0) {
-        animateScrollBy(delta.toFloat())
-    }
+        ),
+    )
 }
 
 /** Backward jumps may pin to the leading edge. That is the minimum scroll. */
@@ -151,46 +149,60 @@ private suspend fun LazyListState.settleBackwardStripReveal(index: Int) {
  * Applies [stripRevealForwardLandingDelta] when [index] is composed.
  * Returns false when it is not.
  */
-private suspend fun LazyListState.correctForwardLanding(index: Int): Boolean {
-    val landed = layoutInfo
-    val item = landed.visibleItemsInfo.firstOrNull { it.index == index } ?: return false
-    val delta =
+private suspend fun LazyListState.correctForwardLanding(index: Int): Boolean =
+    correctComposedStripItem(index) { landed, item ->
         stripRevealForwardLandingDelta(
             itemOffsetPx = item.offset,
             itemSizePx = item.size,
             viewportStartPx = landed.viewportStartOffset,
             viewportEndPx = landed.viewportEndOffset,
         )
+    }
+
+/** Applies [stripReveal] when [index] is composed. Returns false when it is not. */
+private suspend fun LazyListState.correctComposedStripReveal(index: Int): Boolean =
+    correctComposedStripItem(index) { landed, item ->
+        stripReveal(
+            itemOffsetPx = item.offset,
+            itemSizePx = item.size,
+            viewportStartPx = landed.viewportStartOffset,
+            viewportEndPx = landed.viewportEndOffset,
+        )
+    }
+
+/**
+ * Looks up the composed [index] once and animates by the delta [deltaFor]
+ * computes from it. Returns false when [index] is not composed.
+ */
+private suspend fun LazyListState.correctComposedStripItem(
+    index: Int,
+    deltaFor: (LazyListLayoutInfo, LazyListItemInfo) -> Int,
+): Boolean {
+    val landed = layoutInfo
+    val item = landed.visibleItemsInfo.firstOrNull { it.index == index } ?: return false
+    animateDelta(deltaFor(landed, item))
+    return true
+}
+
+/** Animates by [delta] px. A zero delta is not a scroll. */
+private suspend fun LazyListState.animateDelta(delta: Int) {
     if (delta != 0) {
         animateScrollBy(delta.toFloat())
     }
-    return true
-}
-
-/** Applies [stripReveal] when [index] is composed. Returns false when it is not. */
-private suspend fun LazyListState.correctComposedStripReveal(index: Int): Boolean {
-    val landed = layoutInfo
-    val item = landed.visibleItemsInfo.firstOrNull { it.index == index } ?: return false
-    animateComposedStripReveal(index, item, landed)
-    return true
 }
 
 private suspend fun LazyListState.animateComposedStripReveal(
-    index: Int,
     item: LazyListItemInfo,
     layout: LazyListLayoutInfo,
 ) {
-    val reveal =
+    animateDelta(
         stripReveal(
-            itemIndex = index,
             itemOffsetPx = item.offset,
             itemSizePx = item.size,
             viewportStartPx = layout.viewportStartOffset,
             viewportEndPx = layout.viewportEndOffset,
-        )
-    if (reveal.scrollByPx != 0) {
-        animateScrollBy(reveal.scrollByPx.toFloat())
-    }
+        ),
+    )
 }
 
 private suspend fun LazyListState.animateOffscreenStripReveal(
@@ -199,7 +211,7 @@ private suspend fun LazyListState.animateOffscreenStripReveal(
     visible: List<LazyListItemInfo>,
     layout: LazyListLayoutInfo,
 ) {
-    val delta =
+    animateDelta(
         stripRevealOffscreenDelta(
             targetIndex = index,
             anchorIndex = anchor.index,
@@ -209,10 +221,8 @@ private suspend fun LazyListState.animateOffscreenStripReveal(
             spacingPx = stripVisibleSpacingPx(visible),
             viewportStartPx = layout.viewportStartOffset,
             viewportEndPx = layout.viewportEndOffset,
-        )
-    if (delta != 0) {
-        animateScrollBy(delta.toFloat())
-    }
+        ),
+    )
 }
 
 /**
