@@ -66,6 +66,7 @@ import com.stratum.feature.program.ProgramSheetPadMoment
 import com.stratum.feature.program.ProgramSheetRow
 import com.stratum.feature.program.R
 import com.stratum.feature.program.SheetPlacedItem
+import com.stratum.feature.program.expandedAfterSheetRemoval
 import com.stratum.feature.program.formatEstimatedWorkoutDuration
 import com.stratum.feature.program.programSheetAdjacentLift
 import com.stratum.feature.program.programSheetAnchorIndex
@@ -116,17 +117,21 @@ internal fun ProgramSheet(
     val sheetCallbacks =
         callbacks.copy(
             onCutSheetLift = { dayId, liftId ->
-                val open = expanded
-                if (open != null && open.dayId == dayId && open.workoutLiftId == liftId) {
-                    expanded = null
-                }
+                expanded =
+                    expandedAfterSheetRemoval(
+                        expanded = expanded,
+                        removedDayId = dayId,
+                        removedWorkoutLiftId = liftId,
+                    )
                 callbacks.onCutSheetLift(dayId, liftId)
             },
             onRemoveSheetLift = { dayId, liftId, message ->
-                val open = expanded
-                if (open != null && open.dayId == dayId && open.workoutLiftId == liftId) {
-                    expanded = null
-                }
+                expanded =
+                    expandedAfterSheetRemoval(
+                        expanded = expanded,
+                        removedDayId = dayId,
+                        removedWorkoutLiftId = liftId,
+                    )
                 callbacks.onRemoveSheetLift(dayId, liftId, message)
             },
         )
@@ -310,6 +315,16 @@ internal fun ProgramSheet(
             },
             onRemove = {
                 menuDayId = null
+                val kept =
+                    expandedAfterSheetRemoval(
+                        expanded = expanded,
+                        removedDayId = menuDay.id,
+                        removedWorkoutLiftId = null,
+                    )
+                if (kept != expanded) {
+                    expanded = kept
+                    rirSetId = null
+                }
                 sheetCallbacks.onSelectDay(menuDay.id)
                 sheetCallbacks.onRemoveDay()
             },

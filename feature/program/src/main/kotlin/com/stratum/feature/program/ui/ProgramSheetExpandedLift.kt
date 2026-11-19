@@ -301,6 +301,13 @@ internal fun ProgramSheetLiftSheets(
             },
             onRemoveLift = {
                 onDismissLiftActions()
+                if (
+                    locatedRir != null &&
+                        locatedRir.dayId == locatedActions.dayId &&
+                        locatedActions.lift.sets.any { set -> set.setId == rirSetId }
+                ) {
+                    onDismissRir()
+                }
                 callbacks.onRemoveSheetLift(
                     locatedActions.dayId,
                     locatedActions.lift.workoutLiftId,

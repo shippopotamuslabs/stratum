@@ -89,24 +89,26 @@ internal fun copyProgramSheetLift(
 }
 
 /**
- * Puts [liftsByDayId] back on those days. Lift order, set ids, and superset ids
- * are the lists that were snapshotted. Days absent from the map stay as they are.
+ * Applies [undo] to the live days: each step runs against its day's current lift
+ * list, so edits made after the undone change survive. Days the undo does not
+ * name, and days with no edit state, stay as they are.
  */
-internal fun restoreProgramSheetLiftOrder(
+internal fun applySheetUndo(
     days: List<CreateProgramDayUi>,
-    liftsByDayId: Map<String, List<EditLiftState>>,
+    undo: ProgramSheetUndo,
 ): List<CreateProgramDayUi> {
-    if (liftsByDayId.isEmpty()) return days
+    if (undo.stepsByDayId.isEmpty()) return days
     var changed = false
     val next =
         days.map { day ->
-            val prior = liftsByDayId[day.id]
+            val steps = undo.stepsByDayId[day.id]
             val edit = day.editState
-            if (prior == null || edit == null) {
+            if (steps == null || edit == null) {
                 day
             } else {
                 changed = true
-                day.copy(editState = edit.copy(lifts = prior, isDirty = true))
+                val lifts = steps.fold(edit.lifts) { current, step -> step.applyTo(current) }
+                day.copy(editState = edit.copy(lifts = lifts, isDirty = true))
             }
         }
     return if (changed) next else days
@@ -161,73 +163,176 @@ internal fun insertCutLiftIntoCurrent(
 }
 
 /**
- * Puts the returned cut into a sheet-delete snapshot that was taken while the
- * lift was already off the day. A snapshot that already has the lift, or a map
- * that does not include [fromDayId], is returned unchanged. Null stays null.
+ * One lift-list change inside a [ProgramSheetUndo]. A step runs against the
+ * day's lift list as it stands when Undo is tapped, never against a snapshot,
+ * so an edit made after the change being undone stays in place.
  */
-internal fun rebaseSheetLiftUndoForReturnedCut(
-    undo: Map<String, List<EditLiftState>>?,
-    fromDayId: String,
-    lift: EditLiftState,
-    originalIndex: Int,
-    sourceLiftsBefore: List<EditLiftState>,
-): Map<String, List<EditLiftState>>? {
-    if (undo == null) return null
-    val snapshot = undo[fromDayId] ?: return undo
-    if (snapshot.any { item -> item.workoutLiftId == lift.workoutLiftId }) return undo
-    val rebased =
-        insertCutLiftIntoCurrent(
-            current = snapshot,
-            lift = lift,
-            originalIndex = originalIndex,
-            sourceLiftsBefore = sourceLiftsBefore,
-        )
-    return undo + (fromDayId to rebased)
+internal sealed interface SheetLiftUndoStep {
+    fun applyTo(lifts: List<EditLiftState>): List<EditLiftState>
+
+    /** Takes a pasted lift back off the day it landed on. */
+    data class RemoveLift(val workoutLiftId: String) : SheetLiftUndoStep {
+        override fun applyTo(lifts: List<EditLiftState>): List<EditLiftState> =
+            removeLiftAndCleanupSupersets(lifts, workoutLiftId)
+    }
+
+    /**
+     * Puts a cut or deleted lift back into the day's current list at its old
+     * index. [sourceLiftsBefore] is the day's list from before the lift left,
+     * used only to restore its superset partners.
+     */
+    data class InsertLift(
+        val lift: EditLiftState,
+        val originalIndex: Int,
+        val sourceLiftsBefore: List<EditLiftState>,
+    ) : SheetLiftUndoStep {
+        override fun applyTo(lifts: List<EditLiftState>): List<EditLiftState> =
+            if (lifts.any { item -> item.workoutLiftId == lift.workoutLiftId }) {
+                lifts
+            } else {
+                insertCutLiftIntoCurrent(
+                    current = lifts,
+                    lift = lift,
+                    originalIndex = originalIndex,
+                    sourceLiftsBefore = sourceLiftsBefore,
+                )
+            }
+    }
+}
+
+/** A pending sheet Undo: per-day steps, applied to the live days on tap. */
+internal data class ProgramSheetUndo(
+    val stepsByDayId: Map<String, List<SheetLiftUndoStep>>,
+) {
+    val isEmpty: Boolean
+        get() = stepsByDayId.isEmpty()
 }
 
 /**
- * Undo lists for a sheet paste. Copy only snapshots [toDayId].
- * Cut reinserts [ProgramSheetClipboard.lift] into [liveSourceLifts] (the source
- * day at paste time), so an edit made after the cut stays on that day.
+ * Undo for a sheet paste. A cut is removed from the day it landed on and put
+ * back into its source day's current list; a copy is only removed from the
+ * day it landed on. [pastedWorkoutLiftId] is the id the paste landed with:
+ * the cut lift's own id, or the copy's new id.
  */
 internal fun sheetPasteUndo(
     clip: ProgramSheetClipboard,
     toDayId: String,
-    targetLifts: List<EditLiftState>,
-    liveSourceLifts: List<EditLiftState>,
-): Map<String, List<EditLiftState>> =
+    pastedWorkoutLiftId: String,
+): ProgramSheetUndo =
     when (clip.kind) {
         ProgramSheetClipboardKind.Cut -> {
-            val sourceRestored =
-                insertCutLiftIntoCurrent(
-                    current = liveSourceLifts,
+            val insert =
+                SheetLiftUndoStep.InsertLift(
                     lift = clip.lift,
                     originalIndex = clip.originalIndex,
                     sourceLiftsBefore = clip.sourceLiftsBefore,
                 )
+            val remove = SheetLiftUndoStep.RemoveLift(pastedWorkoutLiftId)
             if (clip.fromDayId == toDayId) {
-                mapOf(toDayId to sourceRestored)
+                ProgramSheetUndo(mapOf(toDayId to listOf(remove, insert)))
             } else {
-                mapOf(clip.fromDayId to sourceRestored, toDayId to targetLifts)
+                ProgramSheetUndo(
+                    mapOf(
+                        clip.fromDayId to listOf(insert),
+                        toDayId to listOf(remove),
+                    ),
+                )
             }
         }
-        ProgramSheetClipboardKind.Copy -> mapOf(toDayId to targetLifts)
+        ProgramSheetClipboardKind.Copy ->
+            ProgramSheetUndo(mapOf(toDayId to listOf(SheetLiftUndoStep.RemoveLift(pastedWorkoutLiftId))))
     }
 
 /**
- * Sheet undo while a save is writing is refused. The snapshot stays put.
+ * Realigns a pending insert step on [fromDayId] with a cut lift that just came
+ * back to that day. The step's index was counted while the cut lift was off
+ * the day; without the shift the undone lift lands one slot early. The step's
+ * lift also takes back the superset group and rest-timer flag the cut had
+ * dissolved, which the day's own before-list no longer remembers. Steps whose
+ * before-list already contains the returned lift, and a step for the returned
+ * lift itself, are left alone. Null stays null.
+ */
+internal fun rebaseSheetUndoForReturnedCut(
+    undo: ProgramSheetUndo?,
+    fromDayId: String,
+    lift: EditLiftState,
+    originalIndex: Int,
+    sourceLiftsBefore: List<EditLiftState>,
+): ProgramSheetUndo? {
+    if (undo == null) return null
+    val steps = undo.stepsByDayId[fromDayId] ?: return undo
+    val realigned =
+        steps.map { step ->
+            val insert = step as? SheetLiftUndoStep.InsertLift
+            if (
+                insert == null ||
+                    insert.lift.workoutLiftId == lift.workoutLiftId ||
+                    insert.sourceLiftsBefore.any { item -> item.workoutLiftId == lift.workoutLiftId }
+            ) {
+                step
+            } else {
+                val precut =
+                    sourceLiftsBefore.firstOrNull { item -> item.workoutLiftId == insert.lift.workoutLiftId }
+                if (precut == null) {
+                    step
+                } else {
+                    val relifted =
+                        insert.copy(
+                            lift =
+                                insert.lift.copy(
+                                    supersetGroupId = precut.supersetGroupId,
+                                    useRestTimerBetweenLifts = precut.useRestTimerBetweenLifts,
+                                ),
+                        )
+                    if (
+                        sourceLiftsBefore.indexOfFirst { item -> item.workoutLiftId == insert.lift.workoutLiftId } >
+                            originalIndex
+                    ) {
+                        relifted.copy(originalIndex = relifted.originalIndex + 1)
+                    } else {
+                        relifted
+                    }
+                }
+            }
+        }
+    if (realigned == steps) return undo
+    return undo.copy(stepsByDayId = undo.stepsByDayId + (fromDayId to realigned))
+}
+
+/** Undo for a sheet delete: the lift goes back into its day's current list at its old index. */
+internal fun sheetDeleteUndo(
+    dayId: String,
+    lift: EditLiftState,
+    originalIndex: Int,
+    liftsBefore: List<EditLiftState>,
+): ProgramSheetUndo =
+    ProgramSheetUndo(
+        mapOf(
+            dayId to
+                listOf(
+                    SheetLiftUndoStep.InsertLift(
+                        lift = lift,
+                        originalIndex = originalIndex,
+                        sourceLiftsBefore = liftsBefore,
+                    ),
+                ),
+        ),
+    )
+
+/**
+ * Sheet undo while a save is writing is refused. The undo stays put.
  * An idle undo returns the restored day list, or null when there is nothing to put back.
  */
 internal fun consumeSheetUndo(
     isSaving: Boolean,
-    snapshot: Map<String, List<EditLiftState>>?,
+    undo: ProgramSheetUndo?,
     days: List<CreateProgramDayUi>,
 ): SheetUndoConsumption {
     if (isSaving) return SheetUndoConsumption(consumed = false, days = null)
-    if (snapshot.isNullOrEmpty()) return SheetUndoConsumption(consumed = true, days = null)
+    if (undo == null || undo.isEmpty) return SheetUndoConsumption(consumed = true, days = null)
     return SheetUndoConsumption(
         consumed = true,
-        days = restoreProgramSheetLiftOrder(days, snapshot),
+        days = applySheetUndo(days, undo),
     )
 }
 
