@@ -96,14 +96,7 @@ internal object CreateProgramDayEditor {
     ): CreateProgramUiState {
         val selectedId = state.selectedDayId ?: return state
         return state.copy(
-            days =
-                state.days.map { day ->
-                    if (day.id != selectedId || day.editState == null) {
-                        day
-                    } else {
-                        day.copy(editState = transform(day.editState), isRest = false)
-                    }
-                },
+            days = updateProgramDay(state.days, selectedId, transform),
             isDirty = true,
         )
     }

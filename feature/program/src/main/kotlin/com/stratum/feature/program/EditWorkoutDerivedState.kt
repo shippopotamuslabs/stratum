@@ -73,7 +73,7 @@ internal fun buildProgramVolumeInputsWithEditedWorkout(
         }
     }
 
-private fun List<EditLiftState>.toVolumeInputs(): List<WorkoutLiftVolumeInput> =
+internal fun List<EditLiftState>.toVolumeInputs(): List<WorkoutLiftVolumeInput> =
     map { lift ->
         WorkoutLiftVolumeInput(
             liftId = lift.liftId,
