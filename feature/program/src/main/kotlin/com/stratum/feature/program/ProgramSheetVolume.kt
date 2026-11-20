@@ -1,6 +1,7 @@
 package com.stratum.feature.program
 
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditWorkoutUiState
 import java.util.Locale
 
@@ -146,10 +147,13 @@ private fun ProgramSheetMetrics.programMuscleSets(): List<ProgramSheetMuscleSets
             )
         }
 
+/** The one set-counting formula for the sheet; every builder reads totals from here. */
+internal fun sheetSetTotal(lifts: List<EditLiftState>): Int = lifts.sumOf { lift -> lift.sets.size }
+
 private fun EditWorkoutUiState.Loaded.toSheetWorkoutMetrics(dayId: String): ProgramSheetWorkoutMetrics =
     ProgramSheetWorkoutMetrics(
         dayId = dayId,
-        setTotal = lifts.sumOf { lift -> lift.sets.size },
+        setTotal = sheetSetTotal(lifts),
         estimatedDurationMinutes = estimatedDurationMinutes,
         upperVolumeByMuscle = upperVolumeByMuscle,
         lowerVolumeByMuscle = lowerVolumeByMuscle,
