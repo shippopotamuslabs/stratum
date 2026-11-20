@@ -1,3 +1,3 @@
-Health metrics that cannot load now show as unavailable instead of zeros, so a failed Health Connect read no longer looks like a day with no steps, weight, or sleep.
+The program editor is one sheet now. Every workout in a program sits on a single scrolling page, and tapping a lift opens its full editor in place.
 
-Error handling was rebuilt across sync, sign-in, imports, and program generation: failures travel as typed results and each one is recorded once with its cause, so problems surface where they happen instead of being swallowed or logged three times.
+Cut, copy, and paste move lifts between workouts. Multi-select edits sets, reps, and RIR across several lifts at once, and undo restores the lifts you changed. The pinned volume strip and the muscle by workout table update as you edit.
