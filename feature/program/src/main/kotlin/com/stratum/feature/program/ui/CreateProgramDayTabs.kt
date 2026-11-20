@@ -2,18 +2,16 @@ package com.stratum.feature.program.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.component.StratumSyncedItemStrip
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumTheme
@@ -49,9 +48,9 @@ internal fun DayTabsRow(
     onSelectDay: (String) -> Unit,
     onAddDay: () -> Unit,
 ) {
-    val scrollState = rememberScrollState()
     val colors = StratumThemeAccessor.colors
     val borderWidth = StratumThemeAccessor.shapes.borderWidth
+    val selectedIndex = days.indexOfFirst { it.id == selectedDayId }.takeIf { it >= 0 }
 
     Box(
         modifier =
@@ -68,38 +67,46 @@ internal fun DayTabsRow(
                     )
                 },
     ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .horizontalScroll(scrollState)
-                    .padding(horizontal = StratumSpacing.s4),
+        StratumSyncedItemStrip(
+            itemCount = days.size,
+            selectedIndex = selectedIndex,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = StratumSpacing.s4),
+            horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically,
-        ) {
-            days.forEach { day ->
-                DayTab(
-                    name = day.name,
-                    selected = day.id == selectedDayId,
-                    onSelect = { onSelectDay(day.id) },
-                )
-            }
-            if (canAddDay) {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxHeight()
-                            .clickable(onClick = onAddDay)
-                            .padding(horizontal = StratumSpacing.s12),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    StratumText(
-                        text = stringResource(R.string.create_program_add_day) + " +",
-                        style = StratumThemeAccessor.typography.bodyLarge,
-                        muted = true,
-                    )
-                }
-            }
+            itemKey = { index -> days[index].id },
+            trailingContent =
+                if (canAddDay) {
+                    { AddDayTab(onAddDay = onAddDay) }
+                } else {
+                    null
+                },
+        ) { index, selected ->
+            val day = days[index]
+            DayTab(
+                name = day.name,
+                selected = selected,
+                onSelect = { onSelectDay(day.id) },
+            )
         }
+    }
+}
+
+@Composable
+private fun AddDayTab(onAddDay: () -> Unit) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxHeight()
+                .clickable(onClick = onAddDay)
+                .padding(horizontal = StratumSpacing.s12),
+        contentAlignment = Alignment.Center,
+    ) {
+        StratumText(
+            text = stringResource(R.string.create_program_add_day) + " +",
+            style = StratumThemeAccessor.typography.bodyLarge,
+            muted = true,
+        )
     }
 }
 
