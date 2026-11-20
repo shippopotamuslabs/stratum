@@ -46,9 +46,9 @@ import com.stratum.feature.program.programSheetVolumeStrip
 import java.util.Locale
 
 /**
- * Pinned volume line under the day jump strip. The muscle line is the visible
- * workout. The program set total stays labeled beside it. Pivot opens the
- * muscle table. Open state stays in this composable, not on editor state.
+ * Pinned volume line under the day jump strip. The muscle line is the program
+ * total. Pivot opens the muscle table. Open state stays in this composable,
+ * not on editor state.
  */
 @Composable
 internal fun ProgramSheetVolumeStrip(
@@ -56,10 +56,10 @@ internal fun ProgramSheetVolumeStrip(
     modifier: Modifier = Modifier,
 ) {
     val metrics = programSheetMetricsFromEditorDays(state.days)
-    val strip = programSheetVolumeStrip(metrics, state.days, state.selectedDayId)
+    val strip = programSheetVolumeStrip(metrics)
     val pivot = programSheetVolumePivot(metrics, state.days)
     var open by remember { mutableStateOf(false) }
-    val muscleLine = programSheetVolumeMuscleLine(strip.workoutMuscles)
+    val muscleLine = programSheetVolumeMuscleLine(strip.programMuscles)
     Column(
         modifier =
             modifier
@@ -70,8 +70,6 @@ internal fun ProgramSheetVolumeStrip(
                 .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s8),
     ) {
         ProgramSheetVolumeStripHeader(
-            workoutName = strip.workoutName,
-            workoutSetTotal = strip.workoutSetTotal,
             programSetTotal = strip.programSetTotal,
             onOpenPivot = { open = true },
         )
@@ -181,8 +179,6 @@ internal fun ProgramSheetVolumePivotTable(
 
 @Composable
 private fun ProgramSheetVolumeStripHeader(
-    workoutName: String,
-    workoutSetTotal: Int?,
     programSetTotal: Int,
     onOpenPivot: () -> Unit,
 ) {
@@ -214,35 +210,7 @@ private fun ProgramSheetVolumeStripHeader(
             style = StratumThemeAccessor.typography.bodyMedium,
             maxLines = 1,
         )
-        if (workoutName.isNotEmpty()) {
-            StratumText(
-                text = workoutName,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .padding(horizontal = StratumSpacing.s8),
-                style = StratumThemeAccessor.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.End,
-            )
-        } else {
-            Spacer(modifier = Modifier.weight(1f))
-        }
-        if (workoutSetTotal != null) {
-            StratumText(
-                text =
-                    pluralStringResource(
-                        R.plurals.create_program_sheet_set_total,
-                        workoutSetTotal,
-                        workoutSetTotal,
-                    ),
-                modifier = Modifier.padding(start = if (workoutName.isEmpty()) StratumSpacing.s8 else StratumSpacing.s4),
-                muted = true,
-                style = StratumThemeAccessor.typography.bodyMedium,
-                maxLines = 1,
-            )
-        }
+        Spacer(modifier = Modifier.weight(1f))
         StratumTextButton(
             text = stringResource(R.string.create_program_sheet_volume_pivot),
             onClick = onOpenPivot,

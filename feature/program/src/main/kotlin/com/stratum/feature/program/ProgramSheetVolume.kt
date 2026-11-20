@@ -10,10 +10,7 @@ internal data class ProgramSheetMuscleSets(
 )
 
 internal data class ProgramSheetVolumeStrip(
-    val workoutDayId: String?,
-    val workoutName: String,
-    val workoutSetTotal: Int?,
-    val workoutMuscles: List<ProgramSheetMuscleSets>,
+    val programMuscles: List<ProgramSheetMuscleSets>,
     val programSetTotal: Int,
 )
 
@@ -53,42 +50,11 @@ internal fun programSheetMetricsFromEditorDays(days: List<CreateProgramDayUi>): 
     )
 }
 
-internal fun programSheetVolumeStrip(
-    metrics: ProgramSheetMetrics,
-    days: List<CreateProgramDayUi>,
-    visibleDayId: String?,
-): ProgramSheetVolumeStrip {
-    val programSetTotal = metrics.workouts.sumOf { workout -> workout.setTotal }
-    val visible = visibleWorkout(days, metrics, visibleDayId)
-    if (visible == null) {
-        return ProgramSheetVolumeStrip(
-            workoutDayId = null,
-            workoutName = "",
-            workoutSetTotal = null,
-            workoutMuscles = emptyList(),
-            programSetTotal = programSetTotal,
-        )
-    }
-    val (day, workout) = visible
-    return ProgramSheetVolumeStrip(
-        workoutDayId = day.id,
-        workoutName = day.name,
-        workoutSetTotal = workout.setTotal,
-        workoutMuscles = programSheetMuscleSets(workout.upperVolumeByMuscle + workout.lowerVolumeByMuscle),
-        programSetTotal = programSetTotal,
+internal fun programSheetVolumeStrip(metrics: ProgramSheetMetrics): ProgramSheetVolumeStrip =
+    ProgramSheetVolumeStrip(
+        programMuscles = metrics.programMuscleSets(),
+        programSetTotal = metrics.workouts.sumOf { workout -> workout.setTotal },
     )
-}
-
-private fun visibleWorkout(
-    days: List<CreateProgramDayUi>,
-    metrics: ProgramSheetMetrics,
-    visibleDayId: String?,
-): Pair<CreateProgramDayUi, ProgramSheetWorkoutMetrics>? {
-    val day = days.firstOrNull { it.id == visibleDayId } ?: return null
-    if (day.isRest || day.editState == null) return null
-    val workout = metrics.workouts.firstOrNull { it.dayId == day.id } ?: return null
-    return day to workout
-}
 
 internal fun programSheetVolumePivot(
     metrics: ProgramSheetMetrics,
