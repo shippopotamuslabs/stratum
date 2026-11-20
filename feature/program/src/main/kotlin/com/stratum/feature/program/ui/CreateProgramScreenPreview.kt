@@ -8,6 +8,7 @@ import com.stratum.feature.program.CreateProgramDayUi
 import com.stratum.feature.program.CreateProgramGenerateState
 import com.stratum.feature.program.CreateProgramStep
 import com.stratum.feature.program.CreateProgramUiState
+import com.stratum.feature.program.ProgramEditorSurface
 
 /**
  * Screenshot-test previews for [CreateProgramScreen] wizard steps (STR-92). Covers the
@@ -87,6 +88,12 @@ private fun CreateProgramEditorNeoPreview() {
     CreateProgramStepPreviewContent(family = StratumThemeId.NeoBrutalist, state = previewEditorState())
 }
 
+@PreviewLightDark
+@Composable
+private fun CreateProgramSheetTonalPreview() {
+    CreateProgramStepPreviewContent(family = StratumThemeId.Tonal, state = previewProgramSheetState())
+}
+
 @Composable
 internal fun CreateProgramStepPreviewContent(family: StratumThemeId, state: CreateProgramUiState) {
     StratumTheme(themeId = family) {
@@ -136,4 +143,106 @@ internal fun previewEditorState(): CreateProgramUiState =
                 ),
             ),
         selectedDayId = "day-1",
+    )
+
+internal fun previewProgramSheetState(): CreateProgramUiState =
+    CreateProgramUiState(
+        step = CreateProgramStep.Editor,
+        editorSurface = ProgramEditorSurface.Sheet,
+        programName = "My 3 Day",
+        days =
+            listOf(
+                CreateProgramDayUi(
+                    id = "day-push",
+                    name = "Push",
+                    position = 0,
+                    isRest = false,
+                    editState =
+                        EditWorkoutUiState.Loaded(
+                            workoutId = "day-push",
+                            workoutName = "Push",
+                            estimatedDurationMinutes = 36,
+                            lifts =
+                                listOf(
+                                    previewSheetLift(
+                                        workoutLiftId = "wl-bench",
+                                        name = "Bench Press",
+                                        setCount = 3,
+                                        repMin = 5,
+                                        repMax = 8,
+                                        restSeconds = 180,
+                                        rirGoal = 2,
+                                    ),
+                                    previewSheetLift(
+                                        workoutLiftId = "wl-press",
+                                        name = "Overhead Press",
+                                        setCount = 2,
+                                        repMin = 8,
+                                        repMax = 12,
+                                        restSeconds = 90,
+                                        rirGoal = 1,
+                                    ),
+                                ),
+                        ),
+                ),
+                CreateProgramDayUi(
+                    id = "day-rest",
+                    name = "Rest",
+                    position = 1,
+                    isRest = true,
+                    editState = null,
+                ),
+                CreateProgramDayUi(
+                    id = "day-pull",
+                    name = "Pull",
+                    position = 2,
+                    isRest = false,
+                    editState =
+                        EditWorkoutUiState.Loaded(
+                            workoutId = "day-pull",
+                            workoutName = "Pull",
+                            estimatedDurationMinutes = 24,
+                            lifts =
+                                listOf(
+                                    previewSheetLift(
+                                        workoutLiftId = "wl-row",
+                                        name = "Barbell Row",
+                                        setCount = 3,
+                                        repMin = 6,
+                                        repMax = 10,
+                                        restSeconds = 120,
+                                        rirGoal = 2,
+                                    ),
+                                ),
+                        ),
+                ),
+            ),
+        selectedDayId = "day-push",
+    )
+
+private fun previewSheetLift(
+    workoutLiftId: String,
+    name: String,
+    setCount: Int,
+    repMin: Int,
+    repMax: Int,
+    restSeconds: Int,
+    rirGoal: Int,
+): EditLiftState =
+    EditLiftState(
+        workoutLiftId = workoutLiftId,
+        liftId = workoutLiftId,
+        name = name,
+        position = 0,
+        sets =
+            (1..setCount).map { index ->
+                EditSetState(
+                    setId = "$workoutLiftId-$index",
+                    setNumber = index,
+                    repMin = repMin,
+                    repMax = repMax,
+                    restSeconds = restSeconds,
+                    rirGoal = rirGoal,
+                )
+            },
     )

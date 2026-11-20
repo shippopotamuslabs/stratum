@@ -51,6 +51,12 @@ internal class CreateProgramEditorController(
     var liftNamesById: Map<String, String> = emptyMap()
     var compoundByLiftId: Map<String, Boolean> = emptyMap()
 
+    /**
+     * Day id captured before [CreateProgramActiveSessionGuard.inProgressSessionOrNull] suspends.
+     * Confirm-discard removes this id, not whichever day is selected after the wait.
+     */
+    private var pendingRemoveDayId: String? = null
+
     fun clearLoadedMeta() {
         loadedProgramMeta = null
     }
@@ -83,6 +89,11 @@ internal class CreateProgramEditorController(
         state.update { it.copy(selectedDayId = dayId) }
     }
 
+    /** Dev entry onto the whole-program sheet. Does not mark the draft dirty. */
+    fun showSheet() {
+        state.update { current -> current.copy(editorSurface = ProgramEditorSurface.Sheet) }
+    }
+
     fun addDay() {
         state.update { current -> CreateProgramDayEditor.addRestDay(current) }
     }
@@ -94,16 +105,23 @@ internal class CreateProgramEditorController(
             if (current.days.size <= 1) return@launch
             val session = activeSessionGuard.inProgressSessionOrNull()
             if (activeSessionGuard.isActiveWorkoutDay(selectedId, session)) {
+                pendingRemoveDayId = selectedId
                 activeSessionGuard.stageRemoveDayDiscard()
                 return@launch
             }
-            applyRemoveSelectedDay()
+            pendingRemoveDayId = null
+            state.update { snap ->
+                CreateProgramDayEditor.removeDay(snap, selectedId).withEditorDerivedMetrics()
+            }
         }
     }
 
     fun applyRemoveSelectedDay() {
+        val dayId = pendingRemoveDayId
+        pendingRemoveDayId = null
         state.update { current ->
-            CreateProgramDayEditor.removeSelectedDay(current).withEditorDerivedMetrics()
+            CreateProgramDayEditor.removeDay(current, dayId ?: current.selectedDayId)
+                .withEditorDerivedMetrics()
         }
     }
 

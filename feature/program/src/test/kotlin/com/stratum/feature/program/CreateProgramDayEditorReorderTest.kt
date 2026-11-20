@@ -58,6 +58,57 @@ class CreateProgramDayEditorReorderTest {
         assertFalse(result.isDirty)
     }
 
+    @Test
+    @DisplayName("removeSelectedDay drops the selected day and selects the first remaining")
+    fun removeSelectedDay_selectsFirstRemaining() {
+        val state =
+            CreateProgramUiState(
+                days = listOf(day("a", "A", 0), day("b", "B", 1), day("c", "C", 2)),
+                selectedDayId = "b",
+                isDirty = false,
+            )
+
+        val result = CreateProgramDayEditor.removeSelectedDay(state)
+
+        assertEquals(listOf("a", "c"), result.days.map { it.id })
+        assertEquals(listOf(0, 1), result.days.map { it.position })
+        assertEquals("a", result.selectedDayId)
+        assertTrue(result.isDirty)
+        assertEquals(result, CreateProgramDayEditor.removeDay(state, state.selectedDayId))
+    }
+
+    @Test
+    @DisplayName("removeDay removes the captured id when selection moved during the wait")
+    fun removeDay_keepsSelectionThatMovedOffTheCapturedId() {
+        val state =
+            CreateProgramUiState(
+                days = listOf(day("a", "A", 0), day("b", "B", 1), day("c", "C", 2)),
+                selectedDayId = "c",
+                isDirty = false,
+            )
+
+        val result = CreateProgramDayEditor.removeDay(state, "a")
+
+        assertEquals(listOf("b", "c"), result.days.map { it.id })
+        assertEquals(listOf(0, 1), result.days.map { it.position })
+        assertEquals("c", result.selectedDayId)
+        assertTrue(result.isDirty)
+    }
+
+    @Test
+    @DisplayName("removeSelectedDay keeps the only remaining day")
+    fun removeSelectedDay_singleDayNoOp() {
+        val state =
+            CreateProgramUiState(
+                days = listOf(day("a", "A", 0)),
+                selectedDayId = "a",
+                isDirty = false,
+            )
+
+        assertEquals(state, CreateProgramDayEditor.removeSelectedDay(state))
+        assertEquals(state, CreateProgramDayEditor.removeDay(state, "a"))
+    }
+
     private fun day(
         id: String,
         name: String,

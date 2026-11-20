@@ -56,6 +56,7 @@ import com.stratum.feature.program.ActiveSessionDiscardReason
 import com.stratum.feature.program.CreateProgramGenerateState
 import com.stratum.feature.program.CreateProgramStep
 import com.stratum.feature.program.CreateProgramUiState
+import com.stratum.feature.program.ProgramEditorSurface
 import com.stratum.feature.program.R
 
 @Composable
@@ -228,11 +229,19 @@ fun CreateProgramScreen(
                     topClearance = chrome.top,
                 )
             CreateProgramStep.Editor ->
-                CreateProgramEditorContent(
-                    state = state,
-                    callbacks = callbacks,
-                    topClearance = chrome.top,
-                )
+                if (state.editorSurface == ProgramEditorSurface.Sheet) {
+                    ProgramSheet(
+                        state = state,
+                        callbacks = callbacks,
+                        topClearance = chrome.top,
+                    )
+                } else {
+                    CreateProgramEditorContent(
+                        state = state,
+                        callbacks = callbacks,
+                        topClearance = chrome.top,
+                    )
+                }
         }
     }
 
@@ -302,6 +311,10 @@ fun CreateProgramScreen(
                 callbacks.onRenameProgram(name)
                 showProgramOptionsSheet = false
                 programOptionsMode = CreateProgramOptionsMode.Menu
+            },
+            onShowSheet = {
+                showProgramOptionsSheet = false
+                callbacks.onShowSheet()
             },
             onDismiss = {
                 showProgramOptionsSheet = false
@@ -602,26 +615,28 @@ private fun EmbeddedWorkoutEditor(
 ) {
     EditWorkoutEmbeddedContent(
         state = editState,
-        callbacks =
-            EditWorkoutScreenCallbacks(
-                onAddSet = callbacks.onAddSet,
-                onRemoveSet = callbacks.onRemoveSet,
-                onRemoveLift = callbacks.onRemoveLift,
-                onLinkSupersetWithPrevious = callbacks.onLinkSupersetWithPrevious,
-                onLinkSupersetWithNext = callbacks.onLinkSupersetWithNext,
-                onRemoveFromSuperset = callbacks.onRemoveFromSuperset,
-                onSetUseRestTimerBetweenLifts = callbacks.onSetUseRestTimerBetweenLifts,
-                onAddLift = callbacks.onAddExercise,
-                onSwapLiftClick = callbacks.onSwapLift,
-                onReorderLiftsClick = callbacks.onReorderLifts,
-                onSetRepBand = callbacks.onSetRepBand,
-                onSetRirGoal = callbacks.onSetRirGoal,
-                onSetRestSeconds = callbacks.onSetRestSeconds,
-                onSetRestSecondsForAllSetsOnLift = callbacks.onSetRestSecondsForAllSetsOnLift,
-            ),
+        callbacks = editWorkoutCallbacks(callbacks),
         modifier = modifier,
     )
 }
+
+internal fun editWorkoutCallbacks(callbacks: CreateProgramScreenCallbacks): EditWorkoutScreenCallbacks =
+    EditWorkoutScreenCallbacks(
+        onAddSet = callbacks.onAddSet,
+        onRemoveSet = callbacks.onRemoveSet,
+        onRemoveLift = callbacks.onRemoveLift,
+        onLinkSupersetWithPrevious = callbacks.onLinkSupersetWithPrevious,
+        onLinkSupersetWithNext = callbacks.onLinkSupersetWithNext,
+        onRemoveFromSuperset = callbacks.onRemoveFromSuperset,
+        onSetUseRestTimerBetweenLifts = callbacks.onSetUseRestTimerBetweenLifts,
+        onAddLift = callbacks.onAddExercise,
+        onSwapLiftClick = callbacks.onSwapLift,
+        onReorderLiftsClick = callbacks.onReorderLifts,
+        onSetRepBand = callbacks.onSetRepBand,
+        onSetRirGoal = callbacks.onSetRirGoal,
+        onSetRestSeconds = callbacks.onSetRestSeconds,
+        onSetRestSecondsForAllSetsOnLift = callbacks.onSetRestSecondsForAllSetsOnLift,
+    )
 
 @Composable
 private fun WizardBottomBar(

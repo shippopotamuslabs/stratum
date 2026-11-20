@@ -53,6 +53,37 @@ class ProgramSheetStateTest {
     }
 
     @Test
+    @DisplayName("edits on two days both land in toDomainProgram and the rest slot stays rest")
+    fun editsOnTwoDays_landInDomainProgram() {
+        val updated =
+            updateProgramDay(
+                updateProgramDay(fixtureDays(), DAY_A) { loaded ->
+                    EditWorkoutLiftMutations.addSet(loaded, LIFT_A)
+                },
+                DAY_B,
+            ) { loaded ->
+                EditWorkoutLiftMutations.addSet(loaded, LIFT_B)
+            }
+        val state =
+            CreateProgramUiState(
+                step = CreateProgramStep.Editor,
+                editorSurface = ProgramEditorSurface.Sheet,
+                programId = "prog-sheet",
+                programName = "Sheet",
+                days = updated,
+                selectedDayId = DAY_A,
+            )
+
+        val program = state.toDomainProgram(meta = null)
+
+        assertEquals(listOf(DAY_A, DAY_B), program.workouts.map { workout -> workout.id.value })
+        assertEquals(SETS_A + 1, program.workouts[0].workoutLifts.sumOf { lift -> lift.sets.size })
+        assertEquals(SETS_B + 1, program.workouts[1].workoutLifts.sumOf { lift -> lift.sets.size })
+        assertEquals(setOf(1), program.restSlotIndices)
+        assertEquals(3, program.cycleLength)
+    }
+
+    @Test
     @DisplayName("an unknown day id and a rest day id leave the day list unchanged")
     fun updateProgramDay_unknownAndRestIdsLeaveDaysUnchanged() {
         val days = fixtureDays()

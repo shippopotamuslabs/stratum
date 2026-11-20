@@ -110,6 +110,16 @@
     <string name="create_program_options_a11y">Program options</string>
     <string name="create_program_reorder_workouts">Reorder Workouts</string>
     <string name="create_program_rename_program_menu">Rename Program</string>
+    <string name="create_program_open_sheet">Open sheet</string>
+    <string name="create_program_sheet_column_lift">Lift</string>
+    <string name="create_program_sheet_column_sets">Sets</string>
+    <string name="create_program_sheet_column_reps">Reps</string>
+    <string name="create_program_sheet_workout_menu">Workout options</string>
+    <string name="create_program_sheet_workout_meta">%1$s · %2$s</string>
+    <plurals name="create_program_sheet_set_total">
+        <item quantity="one">%d set</item>
+        <item quantity="other">%d sets</item>
+    </plurals>
     <string name="create_program_rest_day">Rest Day</string>
     <string name="create_program_rest_day_hint">You can convert the rest day into a workout day by adding exercises below</string>
     <string name="create_program_remove_day">Remove Workout</string>
