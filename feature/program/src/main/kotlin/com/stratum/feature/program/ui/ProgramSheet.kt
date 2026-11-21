@@ -65,6 +65,7 @@ import com.stratum.feature.program.ProgramSheetLiftTarget
 import com.stratum.feature.program.ProgramSheetPadMoment
 import com.stratum.feature.program.ProgramSheetRow
 import com.stratum.feature.program.R
+import com.stratum.feature.program.sheetSetTotal
 import com.stratum.feature.program.SheetPlacedItem
 import com.stratum.feature.program.expandedAfterSheetRemoval
 import com.stratum.feature.program.formatEstimatedWorkoutDuration
@@ -217,6 +218,7 @@ internal fun ProgramSheet(
                     sheetCallbacks.onAddDay()
                 },
             )
+            ProgramSheetVolumeStrip(state = state)
             LazyColumn(
                 state = scroll.listState,
                 modifier = Modifier.weight(1f),
@@ -641,7 +643,7 @@ private fun ProgramSheetStickyWorkout(
         }
     ProgramSheetWorkoutHeader(
         day = day,
-        setTotal = edit.lifts.sumOf { lift -> lift.sets.size },
+        setTotal = sheetSetTotal(edit.lifts),
         minutes = edit.estimatedDurationMinutes,
         onAddLift = { onAddLift(day.id) },
         onOpenMenu = { onOpenMenu(day.id) },
