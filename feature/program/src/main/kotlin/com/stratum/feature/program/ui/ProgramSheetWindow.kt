@@ -12,7 +12,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
-import androidx.window.layout.WindowLayoutInfo
 import androidx.window.layout.WindowMetricsCalculator
 import com.stratum.feature.program.SheetFoldSnapshot
 import com.stratum.feature.program.SheetFoldState
@@ -44,15 +43,15 @@ internal fun rememberSheetPosture(): SheetPosture {
 
 @Composable
 private fun rememberFoldSnapshot(activity: Activity): SheetFoldSnapshot? {
-    val empty = remember { WindowLayoutInfo(emptyList()) }
     val layoutInfo =
         remember(activity) {
             WindowInfoTracker.getOrCreate(activity).windowLayoutInfo(activity)
-        }.collectAsStateWithLifecycle(initialValue = empty)
+        }.collectAsStateWithLifecycle(initialValue = null)
+    val features = layoutInfo.value?.displayFeatures ?: return null
     val feature =
-        layoutInfo.value.displayFeatures.filterIsInstance<FoldingFeature>().firstOrNull { folding ->
+        features.filterIsInstance<FoldingFeature>().firstOrNull { folding ->
             folding.orientation == FoldingFeature.Orientation.VERTICAL
-        } ?: layoutInfo.value.displayFeatures.filterIsInstance<FoldingFeature>().firstOrNull()
+        } ?: features.filterIsInstance<FoldingFeature>().firstOrNull()
     val widthPx =
         WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(activity).bounds.width()
     return feature?.toSheetFoldSnapshot(widthPx)
