@@ -89,6 +89,7 @@ fun StratumMuscleVolumeRow(
     modifier: Modifier = Modifier,
     title: String = "Volume",
     initialTier: StratumVolumeBodyTier = StratumVolumeBodyTier.Upper,
+    headerTrailing: (@Composable () -> Unit)? = null,
 ) {
     var selectedIndex by remember(initialTier, upperCards, lowerCards) {
         mutableIntStateOf(
@@ -114,6 +115,7 @@ fun StratumMuscleVolumeRow(
         selectedIndex = selectedIndex,
         onSelectedIndexChange = { index -> selectedIndex = index },
         visibleCards = visibleCards,
+        headerTrailing = headerTrailing,
         modifier = modifier,
     )
 }
@@ -163,6 +165,7 @@ private fun StratumMuscleVolumeRowContent(
     onSelectedIndexChange: (Int) -> Unit,
     visibleCards: List<StratumMuscleVolumeCardState>,
     modifier: Modifier = Modifier,
+    headerTrailing: (@Composable () -> Unit)? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(VOLUME_ROW_SPACING)) {
         Row(
@@ -175,6 +178,9 @@ private fun StratumMuscleVolumeRowContent(
                 style = StratumThemeAccessor.typography.titleLarge,
                 modifier = Modifier.weight(1f),
             )
+            if (headerTrailing != null) {
+                headerTrailing()
+            }
             if (toggleLabels != null) {
                 StratumPillToggle(
                     segments = toggleLabels,
