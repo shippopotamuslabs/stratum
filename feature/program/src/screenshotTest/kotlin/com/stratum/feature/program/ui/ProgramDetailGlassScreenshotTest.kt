@@ -28,6 +28,13 @@ fun createProgramSheetGlass() {
 @PreviewTest
 @PreviewLightDark
 @Composable
+fun createProgramSheetExpandedLiftGlass() {
+    CreateProgramSheetExpandedLiftGlassPreviewContent()
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
 fun editWorkoutGlass() {
     EditWorkoutGlassPreviewContent()
 }

@@ -18,6 +18,27 @@ internal sealed interface ProgramSheetRow {
     data class Rest(override val dayId: String) : ProgramSheetRow
 }
 
+/** One expanded lift in the sheet. Remembered by the composable, not by the draft. */
+internal data class ProgramSheetLiftTarget(val dayId: String, val workoutLiftId: String)
+
+/**
+ * The expanded target that survives a removal: null when the removed lift was the
+ * expanded one, or when its whole day was removed ([removedWorkoutLiftId] null).
+ * A target on another day, or another lift on the same day, survives.
+ */
+internal fun expandedAfterSheetRemoval(
+    expanded: ProgramSheetLiftTarget?,
+    removedDayId: String,
+    removedWorkoutLiftId: String?,
+): ProgramSheetLiftTarget? {
+    val open = expanded ?: return null
+    if (open.dayId != removedDayId) return open
+    if (removedWorkoutLiftId != null && open.workoutLiftId != removedWorkoutLiftId) return open
+    return null
+}
+
+internal enum class ProgramSheetLiftStep { Previous, Next }
+
 internal fun programSheetRows(days: List<CreateProgramDayUi>): List<ProgramSheetRow> =
     buildList {
         for (day in days) {
@@ -65,4 +86,69 @@ internal fun programSheetFollowDayId(
     if (latchVisible) return latchedDayId
     val firstVisibleIndex = visibleIndices.firstOrNull() ?: return null
     return programSheetActiveDayId(rows, firstVisibleIndex)
+}
+
+/** Index of that lift row, or null when the lift is not in the sheet. */
+internal fun programSheetLiftIndex(
+    rows: List<ProgramSheetRow>,
+    dayId: String,
+    workoutLiftId: String,
+): Int? {
+    val index =
+        rows.indexOfFirst { row ->
+            row is ProgramSheetRow.Lift &&
+                row.dayId == dayId &&
+                row.workoutLiftId == workoutLiftId
+        }
+    return index.takeIf { it >= 0 }
+}
+
+/**
+ * Previous or next [ProgramSheetRow.Lift] in sheet order.
+ * Headers, column headers, and rest rows are not stops, so a rest day between
+ * workouts is skipped. Ends return null.
+ */
+internal fun programSheetAdjacentLift(
+    rows: List<ProgramSheetRow>,
+    dayId: String,
+    workoutLiftId: String,
+    step: ProgramSheetLiftStep,
+): ProgramSheetLiftTarget? {
+    val lifts = rows.filterIsInstance<ProgramSheetRow.Lift>()
+    val index = lifts.indexOfFirst { lift -> lift.dayId == dayId && lift.workoutLiftId == workoutLiftId }
+    if (index < 0) return null
+    val adjacentIndex =
+        when (step) {
+            ProgramSheetLiftStep.Previous -> index - 1
+            ProgramSheetLiftStep.Next -> index + 1
+        }
+    val adjacent = lifts.getOrNull(adjacentIndex) ?: return null
+    return ProgramSheetLiftTarget(dayId = adjacent.dayId, workoutLiftId = adjacent.workoutLiftId)
+}
+
+/**
+ * One laid-out sheet row. [stickyHeader] is a workout header pinned over the list;
+ * scroll math stays free of Compose types.
+ */
+internal data class SheetPlacedItem(
+    val index: Int,
+    val offsetPx: Int,
+    val sizePx: Int,
+    val stickyHeader: Boolean,
+)
+
+/**
+ * Pixels of [targetIndex] hidden under a sticky header.
+ * A header counts only when it is flagged and its index is before the target.
+ * Overlap is the header's end minus the target offset; several headers use the largest.
+ * Zero when the target is absent or already clear of every header.
+ */
+internal fun sheetStickyHeaderOverlapPx(items: List<SheetPlacedItem>, targetIndex: Int): Int {
+    val target = items.firstOrNull { item -> item.index == targetIndex } ?: return 0
+    val overlap =
+        items
+            .filter { header -> header.stickyHeader && header.index < targetIndex }
+            .maxOfOrNull { header -> header.offsetPx + header.sizePx - target.offsetPx }
+            ?: return 0
+    return overlap.coerceAtLeast(0)
 }

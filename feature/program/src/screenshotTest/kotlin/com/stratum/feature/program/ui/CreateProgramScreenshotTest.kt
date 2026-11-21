@@ -100,3 +100,14 @@ fun createProgramEditorNeo() {
 fun createProgramSheetTonal() {
     CreateProgramStepPreviewContent(family = StratumThemeId.Tonal, state = previewProgramSheetState())
 }
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun createProgramSheetExpandedLiftTonal() {
+    CreateProgramStepPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewProgramSheetState(),
+        initialExpandedLift = previewSheetExpandedLift(),
+    )
+}

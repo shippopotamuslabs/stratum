@@ -36,6 +36,17 @@ internal fun CreateProgramSheetGlassPreviewContent() {
 }
 
 @Composable
+internal fun CreateProgramSheetExpandedLiftGlassPreviewContent() {
+    StratumGlassHost {
+        CreateProgramStepPreviewContent(
+            family = StratumThemeId.Tonal,
+            state = previewProgramSheetState(),
+            initialExpandedLift = previewSheetExpandedLift(),
+        )
+    }
+}
+
+@Composable
 internal fun EditWorkoutGlassPreviewContent() {
     StratumGlassHost {
         EditWorkoutScreenPreviewContent(family = StratumThemeId.Tonal)

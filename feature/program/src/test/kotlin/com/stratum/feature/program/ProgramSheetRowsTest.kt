@@ -6,6 +6,7 @@ import com.stratum.feature.program.ui.EditWorkoutUiState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 class ProgramSheetRowsTest {
@@ -55,6 +56,32 @@ class ProgramSheetRowsTest {
     }
 
     @Test
+    @DisplayName("adjacent lifts skip a rest day and the index is the lift row")
+    fun adjacentLiftSkipsRestDay() {
+        val rows = programSheetRows(daysWithRestBetweenWorkouts())
+
+        assertEquals(
+            ProgramSheetLiftTarget(DAY_B, LIFT_B),
+            programSheetAdjacentLift(rows, DAY_A, LIFT_A2, ProgramSheetLiftStep.Next),
+        )
+        assertEquals(
+            ProgramSheetLiftTarget(DAY_A, LIFT_A2),
+            programSheetAdjacentLift(rows, DAY_B, LIFT_B, ProgramSheetLiftStep.Previous),
+        )
+        assertEquals(
+            ProgramSheetLiftTarget(DAY_A, LIFT_A2),
+            programSheetAdjacentLift(rows, DAY_A, LIFT_A1, ProgramSheetLiftStep.Next),
+        )
+        assertNull(programSheetAdjacentLift(rows, DAY_A, LIFT_A1, ProgramSheetLiftStep.Previous))
+        assertNull(programSheetAdjacentLift(rows, DAY_B, LIFT_B, ProgramSheetLiftStep.Next))
+        assertNull(programSheetAdjacentLift(rows, DAY_A, "missing", ProgramSheetLiftStep.Next))
+        assertEquals(2, programSheetLiftIndex(rows, DAY_A, LIFT_A1))
+        assertEquals(3, programSheetLiftIndex(rows, DAY_A, LIFT_A2))
+        assertEquals(7, programSheetLiftIndex(rows, DAY_B, LIFT_B))
+        assertNull(programSheetLiftIndex(rows, DAY_A, "missing"))
+    }
+
+    @Test
     @DisplayName("an empty workout is a header and column header, and a rest day is one row")
     fun emptyWorkoutAndRest() {
         val days =
@@ -83,6 +110,96 @@ class ProgramSheetRowsTest {
             programSheetRows(days),
         )
         assertEquals(2, programSheetAnchorIndex(programSheetRows(days), "rest"))
+    }
+
+    @Test
+    @DisplayName("removing the expanded lift, or its whole day, clears the expansion")
+    fun removalOfExpandedLiftOrItsDayClearsExpansion() {
+        val expanded = ProgramSheetLiftTarget(DAY_A, LIFT_A1)
+
+        assertNull(expandedAfterSheetRemoval(expanded, DAY_A, LIFT_A1))
+        assertNull(expandedAfterSheetRemoval(expanded, DAY_A, null))
+    }
+
+    @Test
+    @DisplayName("removing another lift or another day keeps the expansion")
+    fun removalElsewhereKeepsExpansion() {
+        val expanded = ProgramSheetLiftTarget(DAY_A, LIFT_A1)
+
+        assertEquals(expanded, expandedAfterSheetRemoval(expanded, DAY_A, LIFT_A2))
+        assertEquals(expanded, expandedAfterSheetRemoval(expanded, DAY_B, LIFT_B))
+        assertEquals(expanded, expandedAfterSheetRemoval(expanded, DAY_B, null))
+        assertNull(expandedAfterSheetRemoval(null, DAY_A, LIFT_A1))
+    }
+
+    @Nested
+    @DisplayName("sheetStickyHeaderOverlapPx")
+    inner class StickyHeaderOverlap {
+        private val lift = placed(index = 2, offsetPx = 0, sizePx = 48, stickyHeader = false)
+
+        @Test
+        @DisplayName("header and lift both at offset 0 overlap by the header size")
+        fun headerCoveringLiftAtZero() {
+            val header = placed(index = 0, offsetPx = 0, sizePx = 64, stickyHeader = true)
+
+            assertEquals(64, sheetStickyHeaderOverlapPx(listOf(header, lift), targetIndex = 2))
+        }
+
+        @Test
+        @DisplayName("a lift already below the header does not overlap")
+        fun liftBelowHeader() {
+            val header = placed(index = 0, offsetPx = 0, sizePx = 64, stickyHeader = true)
+            val below = lift.copy(offsetPx = 64)
+            val further = lift.copy(offsetPx = 80)
+
+            assertEquals(0, sheetStickyHeaderOverlapPx(listOf(header, below), targetIndex = 2))
+            assertEquals(0, sheetStickyHeaderOverlapPx(listOf(header, further), targetIndex = 2))
+        }
+
+        @Test
+        @DisplayName("no sticky header overlaps")
+        fun noHeader() {
+            val plain = placed(index = 0, offsetPx = 0, sizePx = 64, stickyHeader = false)
+
+            assertEquals(0, sheetStickyHeaderOverlapPx(listOf(plain, lift), targetIndex = 2))
+        }
+
+        @Test
+        @DisplayName("a header after the target index does not overlap")
+        fun headerAfterTarget() {
+            val later = placed(index = 4, offsetPx = 0, sizePx = 64, stickyHeader = true)
+
+            assertEquals(0, sheetStickyHeaderOverlapPx(listOf(lift, later), targetIndex = 2))
+        }
+
+        @Test
+        @DisplayName("two overlapping headers use the larger overlap")
+        fun largerOfTwoHeaders() {
+            val tall = placed(index = 0, offsetPx = 0, sizePx = 64, stickyHeader = true)
+            val short = placed(index = 1, offsetPx = 0, sizePx = 40, stickyHeader = true)
+            val mostlyAbove = placed(index = 0, offsetPx = -40, sizePx = 100, stickyHeader = true)
+            val covering = placed(index = 1, offsetPx = 0, sizePx = 64, stickyHeader = true)
+            val partlyUnder = lift.copy(offsetPx = 50)
+
+            assertEquals(64, sheetStickyHeaderOverlapPx(listOf(tall, short, lift), targetIndex = 2))
+            assertEquals(14, sheetStickyHeaderOverlapPx(listOf(mostlyAbove, covering, partlyUnder), targetIndex = 2))
+        }
+
+        @Test
+        @DisplayName("a missing target overlaps by zero")
+        fun missingTarget() {
+            val header = placed(index = 0, offsetPx = 0, sizePx = 64, stickyHeader = true)
+
+            assertEquals(0, sheetStickyHeaderOverlapPx(listOf(header), targetIndex = 2))
+        }
+
+        private fun placed(index: Int, offsetPx: Int, sizePx: Int, stickyHeader: Boolean): SheetPlacedItem =
+            SheetPlacedItem(
+                index = index,
+                offsetPx = offsetPx,
+                sizePx = sizePx,
+                stickyHeader = stickyHeader,
+            )
     }
 
     private fun daysWithRestBetweenWorkouts(): List<CreateProgramDayUi> =
