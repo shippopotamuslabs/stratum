@@ -923,16 +923,19 @@ private fun ProgramSheetRestRow(name: String, onOpenMenu: () -> Unit) {
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(colors.surfaceBase)
+                // Day band, distinct from the lift rows around it: inset
+                // surface and a title-styled label, so a rest day reads as
+                // a day in the scroll (STR-319).
+                .background(colors.surfaceInset)
                 .sheetHairline()
-                .padding(horizontal = StratumSpacing.s16),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s4),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StratumText(
             text = name,
             modifier = Modifier.weight(1f),
             muted = true,
-            style = StratumThemeAccessor.typography.bodyLarge,
+            style = StratumThemeAccessor.typography.titleMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
