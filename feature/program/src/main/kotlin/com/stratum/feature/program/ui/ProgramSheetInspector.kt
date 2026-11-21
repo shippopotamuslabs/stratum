@@ -273,7 +273,7 @@ private fun InspectorLiftContributionBlock(
         Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4)) {
         StratumText(
             text = stringResource(R.string.create_program_sheet_contributes),
-            style = StratumThemeAccessor.typography.titleMedium,
+            style = StratumThemeAccessor.typography.titleLarge,
         )
         for (row in contribution.rows) {
             Row(
