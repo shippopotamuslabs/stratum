@@ -289,22 +289,57 @@ class ProgramSheetVolumeTest {
     }
 
     @Test
-    @DisplayName("muscle labels use one decimal in Locale.US")
-    fun muscleLabelUsesUsDecimal() {
-        assertEquals("Chest 13.0", programSheetVolumeMuscleLabel("Chest", 13.0))
-        val fractional = programSheetVolumeMuscleLabel("Back", 2.5)
-        assertEquals("Back 2.5", fractional)
+    @DisplayName("set counts use one decimal in Locale.US")
+    fun setCountsUseUsDecimal() {
+        assertEquals("13.0", formatSheetSetCount(13.0))
+        val fractional = formatSheetSetCount(2.5)
+        assertEquals("2.5", fractional)
         assertFalse(fractional.contains(','))
-        assertEquals(
-            "Chest 4.0 - Back 4.0 - Triceps 4.0",
-            programSheetVolumeMuscleLine(
+        val chips =
+            programSheetVolumeChips(
                 listOf(
                     ProgramSheetMuscleSets(MuscleGroup.Chest, "Chest", 4.0),
                     ProgramSheetMuscleSets(MuscleGroup.Back, "Back", 4.0),
                     ProgramSheetMuscleSets(MuscleGroup.Tricep, "Triceps", 4.0),
                 ),
-            ),
+            )
+        assertEquals(
+            listOf("Chest", "Back", "Triceps"),
+            chips.map { chip -> chip.muscleName },
         )
+        assertEquals(listOf("4.0", "4.0", "4.0"), chips.map { chip -> chip.countText })
+        assertTrue(chips.none { chip -> chip.countText.contains(',') })
+    }
+
+    @Test
+    @DisplayName("volume chips are the derived muscle counts, in the same order")
+    fun volumeChipsMatchDerivedMuscleCounts() {
+        val days = fixtureDays()
+        val sheet = derive(days)
+        val strip = programSheetVolumeStrip(sheet)
+        val chips = programSheetVolumeChips(strip.programMuscles)
+        val cards = sheet.programCards().filter { card -> card.setCount != 0.0 }
+
+        assertEquals(
+            cards.map { card -> card.displayName },
+            chips.map { chip -> chip.muscleName },
+        )
+        assertEquals(
+            cards.map { card -> formatSheetSetCount(card.setCount) },
+            chips.map { chip -> chip.countText },
+        )
+        sheet.workouts.forEach { workout ->
+            val workoutCards = workout.cards().filter { card -> card.setCount != 0.0 }
+            val workoutChips = programSheetVolumeChips(programSheetMuscleSets(workout.cards()))
+            assertEquals(
+                workoutCards.map { card -> card.displayName },
+                workoutChips.map { chip -> chip.muscleName },
+            )
+            assertEquals(
+                workoutCards.map { card -> formatSheetSetCount(card.setCount) },
+                workoutChips.map { chip -> chip.countText },
+            )
+        }
     }
 
     private fun derive(days: List<CreateProgramDayUi>): ProgramSheetMetrics =

@@ -2,14 +2,16 @@ package com.stratum.feature.program.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -24,31 +26,31 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumBottomSheet
+import com.stratum.core.ui.component.StratumMuscleVolumeRow
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
+import com.stratum.core.ui.component.StratumVolumeBodyTier
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.CreateProgramUiState
+import com.stratum.feature.program.ProgramSheetVolumeChip
 import com.stratum.feature.program.ProgramSheetVolumePivot
 import com.stratum.feature.program.R
 import com.stratum.feature.program.formatSheetSetCount
 import com.stratum.feature.program.programSheetMetricsFromEditorDays
-import com.stratum.feature.program.programSheetVolumeMuscleLine
 import com.stratum.feature.program.programSheetVolumePivot
-import com.stratum.feature.program.programSheetVolumeStrip
 
 /**
- * Pinned volume line under the day jump strip. The muscle line is the program
- * total. Pivot opens the muscle table. Open state stays in this composable,
- * not on editor state.
+ * Pinned program volume under the day jump strip. Same Upper and Lower
+ * carousel as the program library. By workout opens the muscle table.
+ * Open state stays in this composable, not on editor state.
  */
 @Composable
 internal fun ProgramSheetVolumeStrip(
@@ -56,46 +58,47 @@ internal fun ProgramSheetVolumeStrip(
     modifier: Modifier = Modifier,
 ) {
     val metrics = programSheetMetricsFromEditorDays(state.days)
-    val strip = programSheetVolumeStrip(metrics)
+    val upperCards = metrics.programUpperVolumeByMuscle
+    val lowerCards = metrics.programLowerVolumeByMuscle
     val pivot = programSheetVolumePivot(metrics, state.days)
     var open by remember { mutableStateOf(false) }
-    val muscleLine = programSheetVolumeMuscleLine(strip.programMuscles)
+    if (upperCards.isEmpty() && lowerCards.isEmpty()) return
+    val initialTier =
+        if (upperCards.isEmpty()) {
+            StratumVolumeBodyTier.Lower
+        } else {
+            StratumVolumeBodyTier.Upper
+        }
     Column(
         modifier =
             modifier
                 .fillMaxWidth()
-                .heightIn(min = StratumSpacing.s48)
                 .background(StratumThemeAccessor.colors.surfaceBase)
                 .sheetHairline()
                 .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s8),
     ) {
-        ProgramSheetVolumeStripHeader(
-            programSetTotal = strip.programSetTotal,
-            onOpenPivot = { open = true },
-        )
-        if (muscleLine.isNotEmpty()) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                StratumText(
-                    text = muscleLine,
-                    style =
-                        StratumThemeAccessor.typography.bodyMedium.copy(
-                            fontFeatureSettings = TABULAR_FIGURES,
+        StratumMuscleVolumeRow(
+            upperCards = upperCards,
+            lowerCards = lowerCards,
+            initialTier = initialTier,
+            headerTrailing = {
+                StratumTextButton(
+                    text = stringResource(R.string.create_program_sheet_volume_by_workout),
+                    onClick = { open = true },
+                    modifier = Modifier.padding(end = StratumSpacing.s8),
+                    contentPadding =
+                        PaddingValues(
+                            horizontal = StratumSpacing.s8,
+                            vertical = StratumSpacing.s4,
                         ),
-                    maxLines = 1,
                 )
-            }
-        }
+            },
+        )
     }
     if (open) {
         StratumBottomSheet(
             onDismissRequest = { open = false },
-            title = stringResource(R.string.edit_workout_volume_title),
+            title = stringResource(R.string.create_program_sheet_volume_by_workout),
         ) {
             ProgramSheetVolumePivotTable(pivot = pivot)
         }
@@ -175,43 +178,67 @@ internal fun ProgramSheetVolumePivotTable(
     }
 }
 
+/**
+ * Muscle chips for a workout header on one scrolling line, in the tonal
+ * chip chrome (accentMuted container, onAccentMuted content, the
+ * [com.stratum.core.ui.component.StratumChip] convention): the earlier
+ * surfaceInset fill sat within a shade of the sheet background in light theme
+ * and the chips disappeared. The count uses a fixed slot so a set edit does
+ * not change chip width or reflow the sheet.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ProgramSheetVolumeStripHeader(
-    programSetTotal: Int,
-    onOpenPivot: () -> Unit,
+internal fun SheetVolumeChips(
+    chips: List<ProgramSheetVolumeChip>,
+    modifier: Modifier = Modifier,
 ) {
+    if (chips.isEmpty()) return
+    FlowRow(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(top = StratumSpacing.s4),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
+        maxLines = 1,
+    ) {
+        for (chip in chips) {
+            SheetVolumeChip(name = chip.muscleName, countText = chip.countText)
+        }
+    }
+}
+
+@Composable
+private fun SheetVolumeChip(
+    name: String,
+    countText: String,
+) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            Modifier
+                .background(color = colors.accentMuted, shape = shapes.chip)
+                .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StratumText(
-            text = stringResource(R.string.edit_workout_volume_title),
-            style = StratumThemeAccessor.typography.bodyLarge,
+            text = name,
+            style = StratumThemeAccessor.typography.sectionLabel,
+            color = colors.onAccentMuted,
             maxLines = 1,
         )
-        StratumText(
-            text = stringResource(R.string.edit_workout_volume_scope_program),
-            modifier = Modifier.padding(start = StratumSpacing.s12),
-            muted = true,
-            style = StratumThemeAccessor.typography.bodyMedium,
-            maxLines = 1,
-        )
-        StratumText(
-            text =
-                pluralStringResource(
-                    R.plurals.create_program_sheet_set_total,
-                    programSetTotal,
-                    programSetTotal,
+        StratumNumber(
+            text = countText,
+            modifier = Modifier.width(StratumSpacing.s48),
+            style =
+                StratumThemeAccessor.typography.sectionLabel.copy(
+                    color = colors.onAccentMuted,
+                    fontFeatureSettings = TABULAR_FIGURES,
                 ),
-            modifier = Modifier.padding(start = StratumSpacing.s4),
-            muted = true,
-            style = StratumThemeAccessor.typography.bodyMedium,
             maxLines = 1,
-        )
-        Spacer(modifier = Modifier.weight(1f))
-        StratumTextButton(
-            text = stringResource(R.string.create_program_sheet_volume_pivot),
-            onClick = onOpenPivot,
+            textAlign = TextAlign.End,
         )
     }
 }

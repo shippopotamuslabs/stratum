@@ -36,6 +36,12 @@ internal data class ProgramSheetVolumePivot(
     val cornerTotal: Double,
 )
 
+/** One muscle chip. [countText] is [formatSheetSetCount]. */
+internal data class ProgramSheetVolumeChip(
+    val muscleName: String,
+    val countText: String,
+)
+
 /**
  * Sheet metrics from cards and set counts already stored on the days.
  * Program cards come from the first day whose edit state holds program cards;
@@ -103,13 +109,17 @@ internal fun programSheetVolumePivot(
 internal fun formatSheetSetCount(sets: Double): String =
     String.format(Locale.US, ONE_DECIMAL, sets)
 
-internal fun programSheetVolumeMuscleLabel(name: String, sets: Double): String =
-    "$name ${formatSheetSetCount(sets)}"
-
-/** Plaintext per-muscle sets, same fractional credit as the volume cards. */
-internal fun programSheetVolumeMuscleLine(muscles: List<ProgramSheetMuscleSets>): String =
-    muscles.joinToString(separator = VOLUME_ITEM_GAP) { muscle ->
-        programSheetVolumeMuscleLabel(muscle.muscleName, muscle.sets)
+/**
+ * Ordered chip model for the pinned strip and each workout header.
+ * Same muscles, order, and counts as [muscles]. [ProgramSheetVolumeChip.countText]
+ * is [formatSheetSetCount], the one sheet set-count formatter.
+ */
+internal fun programSheetVolumeChips(muscles: List<ProgramSheetMuscleSets>): List<ProgramSheetVolumeChip> =
+    muscles.map { muscle ->
+        ProgramSheetVolumeChip(
+            muscleName = muscle.muscleName,
+            countText = formatSheetSetCount(muscle.sets),
+        )
     }
 
 internal fun programSheetMuscleSets(cards: List<StratumMuscleVolumeCardState>): List<ProgramSheetMuscleSets> =
@@ -145,4 +155,3 @@ private fun ProgramSheetWorkoutMetrics?.setCountFor(muscle: MuscleGroup): Double
 
 private const val ZERO_SETS = 0.0
 private const val ONE_DECIMAL = "%.1f"
-private const val VOLUME_ITEM_GAP = " - "
