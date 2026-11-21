@@ -106,4 +106,26 @@ class LiftActionGroupsTest {
             ).flatten().contains(LiftActionItem.Select),
         )
     }
+
+    @Test
+    @DisplayName("Given reorder hidden when grouped then the primary group drops it")
+    fun reorderDropsWhenHidden() {
+        val groups =
+            visibleLiftActionGroups(
+                showEditEquipment = true,
+                showRestTimes = false,
+                showManageNotes = false,
+                showPastNotes = false,
+                showReorder = false,
+            )
+
+        assertEquals(
+            listOf(
+                listOf(LiftActionItem.Swap, LiftActionItem.EditEquipment),
+                listOf(LiftActionItem.Superset),
+                listOf(LiftActionItem.Remove),
+            ),
+            groups,
+        )
+    }
 }

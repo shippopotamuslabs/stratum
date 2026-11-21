@@ -43,7 +43,7 @@ fun CreateProgramOptionsBottomSheet(
     programName: String,
     onModeChange: (CreateProgramOptionsMode) -> Unit,
     onReorderWorkouts: () -> Unit,
-    onReorderLifts: () -> Unit,
+    onSelectLifts: (() -> Unit)?,
     onRenameProgram: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -58,11 +58,13 @@ fun CreateProgramOptionsBottomSheet(
                     leadingIconRes = CoreUiR.drawable.ic_swap_vert,
                     onClick = onReorderWorkouts,
                 )
-                CreateProgramOptionRow(
-                    text = stringResource(CoreUiR.string.edit_workout_reorder_lifts),
-                    leadingIconRes = CoreUiR.drawable.ic_swap_vert,
-                    onClick = onReorderLifts,
-                )
+                if (onSelectLifts != null) {
+                    CreateProgramOptionRow(
+                        text = stringResource(CoreUiR.string.edit_workout_select_lift),
+                        leadingIconRes = CoreUiR.drawable.ic_check,
+                        onClick = onSelectLifts,
+                    )
+                }
                 CreateProgramOptionRow(
                     text = stringResource(R.string.create_program_rename_program_menu),
                     leadingIcon = rememberVectorPainter(Icons.Outlined.Edit),
@@ -97,11 +99,13 @@ internal fun CreateProgramOptionRow(
     text: String,
     onClick: () -> Unit,
     @DrawableRes leadingIconRes: Int,
+    destructive: Boolean = false,
 ) {
     CreateProgramOptionRow(
         text = text,
         leadingIcon = painterResource(leadingIconRes),
         onClick = onClick,
+        destructive = destructive,
     )
 }
 
@@ -110,9 +114,11 @@ internal fun CreateProgramOptionRow(
     text: String,
     leadingIcon: Painter,
     onClick: () -> Unit,
+    destructive: Boolean = false,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
+    val contentColor = if (destructive) colors.error else colors.textPrimary
     Row(
         modifier =
             Modifier
@@ -127,13 +133,14 @@ internal fun CreateProgramOptionRow(
         Icon(
             painter = leadingIcon,
             contentDescription = null,
-            tint = colors.textPrimary,
+            tint = contentColor,
             modifier = Modifier.size(24.dp),
         )
         StratumText(
             text = text,
             style = StratumThemeAccessor.typography.bodyLarge,
             modifier = Modifier.weight(1f),
+            color = contentColor,
         )
     }
 }
