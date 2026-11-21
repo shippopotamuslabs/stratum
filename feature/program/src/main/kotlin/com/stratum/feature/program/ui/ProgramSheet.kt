@@ -354,6 +354,14 @@ private fun ProgramSheetFrame(
         }
     val selection = LocalProgramSheetSelection.current
     val twoPane = posture is SheetPosture.TwoPane
+    // Undo restores the days without touching the selection; keep the
+    // selection pointed at the day that actually holds the selected lift.
+    LaunchedEffect(state.days) {
+        val reconciled = reconcileSheetSelection(inspector.selected, state.days)
+        if (reconciled != inspector.selected) {
+            inspector.selected = reconciled
+        }
+    }
     ProgramSheetPanes(
         posture = posture,
         modifier = modifier,
