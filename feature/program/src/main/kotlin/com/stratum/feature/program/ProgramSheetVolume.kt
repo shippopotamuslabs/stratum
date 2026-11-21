@@ -2,6 +2,7 @@ package com.stratum.feature.program
 
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.feature.program.ui.EditLiftMuscleCredit
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditWorkoutUiState
 import java.util.Locale
@@ -71,6 +72,82 @@ internal fun programSheetVolumeStrip(metrics: ProgramSheetMetrics): ProgramSheet
         programMuscles = metrics.programMuscleSets(),
         programSetTotal = metrics.workouts.sumOf { workout -> workout.setTotal },
     )
+
+internal data class ProgramSheetWorkoutSummary(
+    val dayId: String,
+    val name: String,
+    val setTotal: Int,
+    val estimatedDurationMinutes: Int,
+)
+
+/**
+ * Inspector dashboard. Muscles, set total, and pivot are the strip and pivot
+ * models, so a parity test can compare them by value.
+ */
+internal data class ProgramSheetInspectorDashboard(
+    val muscles: List<ProgramSheetMuscleSets>,
+    val programSetTotal: Int,
+    val pivot: ProgramSheetVolumePivot,
+    val workouts: List<ProgramSheetWorkoutSummary>,
+)
+
+internal fun programSheetInspectorDashboard(
+    metrics: ProgramSheetMetrics,
+    days: List<CreateProgramDayUi>,
+): ProgramSheetInspectorDashboard {
+    val strip = programSheetVolumeStrip(metrics)
+    val names = days.associate { day -> day.id to day.name }
+    return ProgramSheetInspectorDashboard(
+        muscles = strip.programMuscles,
+        programSetTotal = strip.programSetTotal,
+        pivot = programSheetVolumePivot(metrics, days),
+        workouts =
+            metrics.workouts.map { workout ->
+                ProgramSheetWorkoutSummary(
+                    dayId = workout.dayId,
+                    name = names[workout.dayId].orEmpty(),
+                    setTotal = workout.setTotal,
+                    estimatedDurationMinutes = workout.estimatedDurationMinutes,
+                )
+            },
+    )
+}
+
+/** One muscle line of the inspector's lift contribution block. */
+internal data class InspectorLiftContributionRow(
+    val muscleName: String,
+    val primary: Boolean,
+    val creditSets: Double,
+    val programSets: Double,
+)
+
+/** The selected lift's contribution block: its credits against program totals. */
+internal data class InspectorLiftContribution(
+    val rows: List<InspectorLiftContributionRow>,
+)
+
+/**
+ * Pairs each of the lift's muscle credits with that muscle's program total
+ * from the [dashboard] model. A credited muscle missing from the dashboard
+ * falls back to its own credit.
+ */
+internal fun inspectorLiftContribution(
+    credits: List<EditLiftMuscleCredit>,
+    dashboard: ProgramSheetInspectorDashboard,
+): InspectorLiftContribution {
+    val totals = dashboard.muscles.associate { muscle -> muscle.muscleName to muscle.sets }
+    return InspectorLiftContribution(
+        rows =
+            credits.map { credit ->
+                InspectorLiftContributionRow(
+                    muscleName = credit.muscleName,
+                    primary = credit.primary,
+                    creditSets = credit.sets,
+                    programSets = totals[credit.muscleName] ?: credit.sets,
+                )
+            },
+    )
+}
 
 internal fun programSheetVolumePivot(
     metrics: ProgramSheetMetrics,

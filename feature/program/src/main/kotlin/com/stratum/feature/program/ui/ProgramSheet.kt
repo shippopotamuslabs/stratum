@@ -1,6 +1,7 @@
 package com.stratum.feature.program.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -48,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -68,6 +70,7 @@ import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.stratumDockTopRule
 import com.stratum.feature.program.CreateProgramDayUi
+import com.stratum.feature.program.SheetPosture
 import com.stratum.feature.program.CreateProgramUiState
 import com.stratum.feature.program.ProgramSheetClipboard
 import com.stratum.feature.program.ProgramSheetClipboardKind
@@ -112,6 +115,8 @@ internal fun ProgramSheet(
     state: CreateProgramUiState,
     callbacks: CreateProgramScreenCallbacks,
     topClearance: Dp,
+    posture: SheetPosture,
+    inspector: ProgramSheetInspectorState,
     modifier: Modifier = Modifier,
 ) {
     val clipboard = LocalProgramSheetClipboard.current
@@ -119,8 +124,8 @@ internal fun ProgramSheet(
         remember(state.days, clipboard != null) {
             programSheetRows(state.days, clipboardActive = clipboard != null)
         }
-    val seededLift = LocalInitialProgramSheetLift.current
     val selection = LocalProgramSheetSelection.current
+    val twoPane = posture is SheetPosture.TwoPane
     val dockHost = remember { EditWorkoutDockHostState() }
     val scroll =
         rememberProgramSheetListScroll(
@@ -131,22 +136,21 @@ internal fun ProgramSheet(
             onLiftScrollSettled = { revealSheetDockAfterLiftScroll(dockHost) },
         )
     var menuDayId by remember { mutableStateOf<String?>(null) }
-    var expanded by remember { mutableStateOf(seededLift) }
     val sheetCallbacks =
         callbacks.copy(
             onCutSheetLift = { dayId, liftId ->
-                expanded =
+                inspector.selected =
                     expandedAfterSheetRemoval(
-                        expanded = expanded,
+                        expanded = inspector.selected,
                         removedDayId = dayId,
                         removedWorkoutLiftId = liftId,
                     )
                 callbacks.onCutSheetLift(dayId, liftId)
             },
             onRemoveSheetLift = { dayId, liftId, message ->
-                expanded =
+                inspector.selected =
                     expandedAfterSheetRemoval(
-                        expanded = expanded,
+                        expanded = inspector.selected,
                         removedDayId = dayId,
                         removedWorkoutLiftId = liftId,
                     )
@@ -160,9 +164,22 @@ internal fun ProgramSheet(
         val moment = if (selection.active) ProgramSheetPadMoment.EnterSelect else ProgramSheetPadMoment.LeaveSelect
         dockHost.applySheetPad(programSheetPadAction(moment, dockHost.openSetId()))
         if (!selection.active) return@LaunchedEffect
-        expanded = null
+        inspector.selected = null
         rirSetId = null
         liftActionsLiftId = null
+    }
+    DisposableEffect(inspector, dockHost) {
+        inspector.onReturnToDashboard = dashboard@{
+            val left =
+                skipDockRestoreForProgramSheetLiftScroll(dockHost) {
+                    dockHost.tryCommitPendingOrBlock()
+                }
+            if (!left) return@dashboard
+            inspector.selected = null
+            rirSetId = null
+            liftActionsLiftId = null
+        }
+        onDispose { inspector.onReturnToDashboard = null }
     }
     DisposableEffect(dockHost) {
         callbacks.onRegisterOpenBulkRepCommit {
@@ -178,13 +195,13 @@ internal fun ProgramSheet(
             listState = scroll.listState,
             dock = dockHost.overlay,
         )
-    val openLift = expanded
+    val openLift = inspector.selected
     val previousEnabled = sheetLiftStepEnabled(rows, openLift, ProgramSheetLiftStep.Previous)
     val nextEnabled = sheetLiftStepEnabled(rows, openLift, ProgramSheetLiftStep.Next)
     val stepTo = { step: ProgramSheetLiftStep, anchorSetId: String? ->
         val moved =
             movedProgramSheetLift(
-                expanded = expanded,
+                expanded = inspector.selected,
                 rows = rows,
                 days = state.days,
                 step = step,
@@ -198,7 +215,7 @@ internal fun ProgramSheet(
             )
         if (moved != null) {
             rirSetId = moved.rirSetId
-            expanded = moved.target
+            inspector.selected = moved.target
             scroll.jumpToLift(moved.target)
         }
     }
@@ -221,122 +238,24 @@ internal fun ProgramSheet(
         previousLiftEnabled = previousEnabled,
         nextLiftEnabled = nextEnabled,
     ) { listModifier, _ ->
-        Column(modifier = listModifier) {
-            DayTabsRow(
-                days = state.days,
-                selectedDayId = state.selectedDayId,
-                canAddDay = state.canAddDay,
-                onSelectDay = { dayId ->
-                    scroll.jumpToDay(dayId)
-                    sheetCallbacks.onSelectDay(dayId)
-                },
-                onAddDay = {
-                    scroll.scrollAfterAdd()
-                    sheetCallbacks.onAddDay()
-                },
-            )
-            ProgramSheetVolumeStrip(state = state)
-            LazyColumn(
-                state = scroll.listState,
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(bottom = StratumSpacing.s16 + dockHeight),
-            ) {
-                rows.forEach { row ->
-                    when (row) {
-                        is ProgramSheetRow.WorkoutHeader ->
-                            stickyHeader(key = "$SHEET_WORKOUT_HEADER_KEY_PREFIX${row.dayId}") { _ ->
-                                ProgramSheetStickyWorkout(
-                                    dayId = row.dayId,
-                                    days = state.days,
-                                    onAddLift = { dayId ->
-                                        sheetCallbacks.onSelectDay(dayId)
-                                        sheetCallbacks.onAddExercise()
-                                    },
-                                    onOpenMenu = { dayId -> menuDayId = dayId },
-                                )
-                            }
-                        is ProgramSheetRow.ColumnHeader ->
-                            item(key = "columns-${row.dayId}") {
-                                ProgramSheetColumnHeader(reserveSelection = selection.active)
-                            }
-                        is ProgramSheetRow.Lift ->
-                            item(key = "lift-${row.dayId}-${row.workoutLiftId}") {
-                                ProgramSheetLiftSlot(
-                                    day = state.days.firstOrNull { it.id == row.dayId },
-                                    workoutLiftId = row.workoutLiftId,
-                                    expanded = openLift,
-                                    callbacks = sheetCallbacks,
-                                    dockHost = dockHost,
-                                    onExpand = { target ->
-                                        rirSetId = null
-                                        liftActionsLiftId = null
-                                        callbacks.onSelectDay(target.dayId)
-                                        expanded = target
-                                    },
-                                    onCollapse = { _ ->
-                                        rirSetId = null
-                                        liftActionsLiftId = null
-                                        expanded = null
-                                    },
-                                    onShowLiftActions = { liftActionsLiftId = it },
-                                    onRirClick = { set -> rirSetId = set.setId },
-                                    onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
-                                )
-                            }
-                        is ProgramSheetRow.PasteSlot ->
-                            item(key = "paste-${row.dayId}") {
-                                val held = clipboard ?: return@item
-                                val message =
-                                    when (held.kind) {
-                                        ProgramSheetClipboardKind.Cut ->
-                                            stringResource(
-                                                R.string.create_program_sheet_moved,
-                                                held.lift.name,
-                                            )
-                                        ProgramSheetClipboardKind.Copy ->
-                                            stringResource(
-                                                R.string.create_program_sheet_copied,
-                                                held.lift.name,
-                                            )
-                                    }
-                                ProgramSheetPasteSlotRow(
-                                    liftName = held.lift.name,
-                                    onClick = {
-                                        sheetCallbacks.onPasteSheetLift(row.dayId, message)
-                                    },
-                                )
-                            }
-                        is ProgramSheetRow.Rest ->
-                            item(key = "rest-${row.dayId}") {
-                                val day = state.days.firstOrNull { it.id == row.dayId } ?: return@item
-                                ProgramSheetRestRow(
-                                    name = day.name,
-                                    onOpenMenu = { menuDayId = day.id },
-                                )
-                            }
-                    }
-                }
-            }
-            if (selection.active) {
-                ProgramSheetBulkHost(
-                    days = state.days,
-                    selection = selection.ordered,
-                    dockHost = dockHost,
-                    onAddSet = sheetCallbacks.onAddSetToSheetSelection,
-                    onRemoveSet = sheetCallbacks.onRemoveSetFromSheetSelection,
-                    onSetRir = sheetCallbacks.onSetRirOnSheetSelection,
-                    onSetRepBand = sheetCallbacks.onSetRepBandOnSheetSelection,
-                    onMove = sheetCallbacks.onMoveSheetSelection,
-                    onDelete = sheetCallbacks.onDeleteSheetSelection,
-                    onCancel = sheetCallbacks.onCancelSheetSelection,
-                )
-            } else if (clipboard != null) {
-                ProgramSheetClipboardTray(
-                    clipboard = clipboard,
-                    onCancel = sheetCallbacks.onCancelSheetClipboard,
-                )
-            }
-        }
+        ProgramSheetFrame(
+            state = state,
+            callbacks = sheetCallbacks,
+            scroll = scroll,
+            posture = posture,
+            inspector = inspector,
+            dockHost = dockHost,
+            dockHeight = dockHeight,
+            onOpenMenu = { menuDayId = it },
+            onPrepareLiftChange = {
+                rirSetId = null
+                liftActionsLiftId = null
+            },
+            onRirClick = { set -> rirSetId = set.setId },
+            onShowLiftActions = { liftActionsLiftId = it },
+            onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
+            modifier = listModifier,
+        )
     }
 
     val menuDay = state.days.firstOrNull { it.id == menuDayId }
@@ -353,12 +272,12 @@ internal fun ProgramSheet(
                 menuDayId = null
                 val kept =
                     expandedAfterSheetRemoval(
-                        expanded = expanded,
+                        expanded = inspector.selected,
                         removedDayId = menuDay.id,
                         removedWorkoutLiftId = null,
                     )
-                if (kept != expanded) {
-                    expanded = kept
+                if (kept != inspector.selected) {
+                    inspector.selected = kept
                     rirSetId = null
                 }
                 sheetCallbacks.onSelectDay(menuDay.id)
@@ -406,11 +325,209 @@ private fun sheetLiftStepEnabled(
     return programSheetAdjacentLift(rows, target.dayId, target.workoutLiftId, step) != null
 }
 
+/**
+ * Sheet content inside [ProgramSheetPanes]. Single-pane renders the sheet
+ * alone with the tray and bulk host at its foot; two-pane puts the inspector
+ * beside it and the tray and bulk host live there instead.
+ */
+@Composable
+private fun ProgramSheetFrame(
+    state: CreateProgramUiState,
+    callbacks: CreateProgramScreenCallbacks,
+    scroll: ProgramSheetListScroll,
+    posture: SheetPosture,
+    inspector: ProgramSheetInspectorState,
+    dockHost: EditWorkoutDockHostState,
+    dockHeight: Dp,
+    onOpenMenu: (String) -> Unit,
+    onPrepareLiftChange: () -> Unit,
+    onRirClick: (EditSetState) -> Unit,
+    onShowLiftActions: (String) -> Unit,
+    onShowProgressionSchemeInfo: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val clipboard = LocalProgramSheetClipboard.current
+    val resources = LocalContext.current.resources
+    val rows =
+        remember(state.days, clipboard != null) {
+            programSheetRows(state.days, clipboardActive = clipboard != null)
+        }
+    val selection = LocalProgramSheetSelection.current
+    val twoPane = posture is SheetPosture.TwoPane
+    ProgramSheetPanes(
+        posture = posture,
+        modifier = modifier,
+        inspector = {
+            ProgramSheetInspector(
+                state = state,
+                selected = inspector.selected,
+                clipboard = clipboard,
+                selection = selection,
+                callbacks = callbacks,
+                dockHost = dockHost,
+                onCloseLift = {
+                    onPrepareLiftChange()
+                    inspector.selected = null
+                },
+                onMoveLiftTo = { toDayId ->
+                    val target = inspector.selected
+                    if (target != null && target.dayId != toDayId) {
+                        onPrepareLiftChange()
+                        val liftName =
+                            state.days
+                                .firstOrNull { day -> day.id == target.dayId }
+                                ?.editState
+                                ?.lifts
+                                ?.firstOrNull { lift -> lift.workoutLiftId == target.workoutLiftId }
+                                ?.name
+                                .orEmpty()
+                        callbacks.onMoveSheetLiftTo(
+                            target.dayId,
+                            target.workoutLiftId,
+                            toDayId,
+                            resources.getString(R.string.create_program_sheet_moved, liftName),
+                        )
+                        callbacks.onSelectDay(toDayId)
+                        inspector.selected = target.copy(dayId = toDayId)
+                    }
+                },
+                onRirClick = onRirClick,
+                onShowLiftActions = onShowLiftActions,
+                onShowProgressionSchemeInfo = onShowProgressionSchemeInfo,
+            )
+        },
+        sheet = {
+            Column(modifier = Modifier.fillMaxSize()) {
+                DayTabsRow(
+                    days = state.days,
+                    selectedDayId = state.selectedDayId,
+                    canAddDay = state.canAddDay,
+                    onSelectDay = { dayId ->
+                        scroll.jumpToDay(dayId)
+                        callbacks.onSelectDay(dayId)
+                    },
+                    onAddDay = {
+                        scroll.scrollAfterAdd()
+                        callbacks.onAddDay()
+                    },
+                )
+                ProgramSheetVolumeStrip(state = state)
+                LazyColumn(
+                    state = scroll.listState,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(bottom = StratumSpacing.s16 + dockHeight),
+                ) {
+                    rows.forEach { row ->
+                        when (row) {
+                            is ProgramSheetRow.WorkoutHeader ->
+                                stickyHeader(key = "$SHEET_WORKOUT_HEADER_KEY_PREFIX${row.dayId}") { _ ->
+                                    ProgramSheetStickyWorkout(
+                                        dayId = row.dayId,
+                                        days = state.days,
+                                        onAddLift = { dayId ->
+                                            callbacks.onSelectDay(dayId)
+                                            callbacks.onAddExercise()
+                                        },
+                                        onOpenMenu = onOpenMenu,
+                                        onShowDashboard =
+                                            if (twoPane) {
+                                                inspector::returnToDashboard
+                                            } else {
+                                                null
+                                            },
+                                    )
+                                }
+                            is ProgramSheetRow.ColumnHeader ->
+                                item(key = "columns-${row.dayId}") {
+                                    ProgramSheetColumnHeader(reserveSelection = selection.active)
+                                }
+                            is ProgramSheetRow.Lift ->
+                                item(key = "lift-${row.dayId}-${row.workoutLiftId}") {
+                                    ProgramSheetLiftSlot(
+                                        day = state.days.firstOrNull { it.id == row.dayId },
+                                        workoutLiftId = row.workoutLiftId,
+                                        expanded = inspector.selected,
+                                        twoPane = twoPane,
+                                        callbacks = callbacks,
+                                        dockHost = dockHost,
+                                        onExpand = { target ->
+                                            onPrepareLiftChange()
+                                            callbacks.onSelectDay(target.dayId)
+                                            inspector.selected = target
+                                        },
+                                        onCollapse = { _ ->
+                                            onPrepareLiftChange()
+                                            inspector.selected = null
+                                        },
+                                        onShowLiftActions = onShowLiftActions,
+                                        onRirClick = onRirClick,
+                                        onShowProgressionSchemeInfo = onShowProgressionSchemeInfo,
+                                    )
+                                }
+                            is ProgramSheetRow.PasteSlot ->
+                                item(key = "paste-${row.dayId}") {
+                                    val held = clipboard ?: return@item
+                                    val message =
+                                        when (held.kind) {
+                                            ProgramSheetClipboardKind.Cut ->
+                                                stringResource(
+                                                    R.string.create_program_sheet_moved,
+                                                    held.lift.name,
+                                                )
+                                            ProgramSheetClipboardKind.Copy ->
+                                                stringResource(
+                                                    R.string.create_program_sheet_copied,
+                                                    held.lift.name,
+                                                )
+                                        }
+                                    ProgramSheetPasteSlotRow(
+                                        liftName = held.lift.name,
+                                        onClick = {
+                                            callbacks.onPasteSheetLift(row.dayId, message)
+                                        },
+                                    )
+                                }
+                            is ProgramSheetRow.Rest ->
+                                item(key = "rest-${row.dayId}") {
+                                    val day = state.days.firstOrNull { it.id == row.dayId } ?: return@item
+                                    ProgramSheetRestRow(
+                                        name = day.name,
+                                        onOpenMenu = { onOpenMenu(day.id) },
+                                    )
+                                }
+                        }
+                    }
+                }
+                if (!twoPane && selection.active) {
+                    ProgramSheetBulkHost(
+                        days = state.days,
+                        selection = selection.ordered,
+                        dockHost = dockHost,
+                        onAddSet = callbacks.onAddSetToSheetSelection,
+                        onRemoveSet = callbacks.onRemoveSetFromSheetSelection,
+                        onSetRir = callbacks.onSetRirOnSheetSelection,
+                        onSetRepBand = callbacks.onSetRepBandOnSheetSelection,
+                        onMove = callbacks.onMoveSheetSelection,
+                        onDelete = callbacks.onDeleteSheetSelection,
+                        onCancel = callbacks.onCancelSheetSelection,
+                    )
+                } else if (!twoPane && clipboard != null) {
+                    ProgramSheetClipboardTray(
+                        clipboard = clipboard,
+                        onCancel = callbacks.onCancelSheetClipboard,
+                    )
+                }
+            }
+        },
+    )
+}
+
 @Composable
 private fun ProgramSheetLiftSlot(
     day: CreateProgramDayUi?,
     workoutLiftId: String,
     expanded: ProgramSheetLiftTarget?,
+    twoPane: Boolean,
     callbacks: CreateProgramScreenCallbacks,
     dockHost: EditWorkoutDockHostState,
     onExpand: (ProgramSheetLiftTarget) -> Unit,
@@ -433,7 +550,7 @@ private fun ProgramSheetLiftSlot(
         return
     }
     val isOpen = expanded == target
-    if (isOpen) {
+    if (isOpen && !twoPane) {
         ProgramSheetExpandedLift(
             lift = lift,
             allLifts = edit.lifts,
@@ -454,13 +571,14 @@ private fun ProgramSheetLiftSlot(
         ProgramSheetLiftRow(
             lift = lift,
             zebra = edit.lifts.indexOf(lift) % 2 == 1,
+            selected = twoPane && isOpen,
             onClick = expand@{
                 val left =
                     skipDockRestoreForProgramSheetLiftScroll(dockHost) {
                         dockHost.tryCommitPendingOrBlock()
                     }
                 if (!left) return@expand
-                onExpand(target)
+                if (twoPane && isOpen) onCollapse(target) else onExpand(target)
             },
             onLongClick = longPress@{
                 val left =
@@ -652,6 +770,7 @@ private fun ProgramSheetStickyWorkout(
     days: List<CreateProgramDayUi>,
     onAddLift: (String) -> Unit,
     onOpenMenu: (String) -> Unit,
+    onShowDashboard: (() -> Unit)?,
 ) {
     val day = days.firstOrNull { it.id == dayId } ?: return
     val edit = day.editState ?: return
@@ -664,6 +783,7 @@ private fun ProgramSheetStickyWorkout(
         chips = chips,
         onAddLift = { onAddLift(day.id) },
         onOpenMenu = { onOpenMenu(day.id) },
+        onShowDashboard = onShowDashboard,
     )
 }
 
@@ -675,6 +795,7 @@ private fun ProgramSheetWorkoutHeader(
     chips: List<ProgramSheetVolumeChip>,
     onAddLift: () -> Unit,
     onOpenMenu: () -> Unit,
+    onShowDashboard: (() -> Unit)? = null,
 ) {
     val colors = StratumThemeAccessor.colors
     val setsLabel = pluralStringResource(R.plurals.create_program_sheet_set_total, setTotal, setTotal)
@@ -690,6 +811,13 @@ private fun ProgramSheetWorkoutHeader(
                 .fillMaxWidth()
                 .background(colors.surfaceRaised)
                 .sheetHairline()
+                .then(
+                    if (onShowDashboard != null) {
+                        Modifier.clickable(onClick = onShowDashboard)
+                    } else {
+                        Modifier
+                    },
+                )
                 .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s8),
     ) {
         Row(
@@ -795,7 +923,7 @@ private fun ProgramSheetPasteSlotRow(
 }
 
 @Composable
-private fun ProgramSheetClipboardTray(
+internal fun ProgramSheetClipboardTray(
     clipboard: ProgramSheetClipboard,
     onCancel: () -> Unit,
 ) {
@@ -879,8 +1007,10 @@ private fun ProgramSheetLiftRow(
     zebra: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    selected: Boolean = false,
 ) {
     val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
     val background = if (zebra) colors.surfaceSunken else colors.surfaceBase
     Row(
         modifier =
@@ -888,6 +1018,13 @@ private fun ProgramSheetLiftRow(
                 .fillMaxWidth()
                 .background(background)
                 .sheetHairline()
+                .then(
+                    if (selected) {
+                        Modifier.border(width = shapes.borderWidth, color = colors.accent)
+                    } else {
+                        Modifier
+                    },
+                )
                 .heightIn(min = 48.dp)
                 .combinedClickable(
                     role = Role.Button,

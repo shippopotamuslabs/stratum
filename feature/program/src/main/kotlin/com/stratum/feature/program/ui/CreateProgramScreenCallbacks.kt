@@ -32,6 +32,7 @@ data class CreateProgramScreenCallbacks(
     val onCopySheetLift: (dayId: String, workoutLiftId: String) -> Unit = { _, _ -> },
     val onCancelSheetClipboard: () -> Unit = {},
     val onPasteSheetLift: (dayId: String, message: String) -> Unit = { _, _ -> },
+    val onMoveSheetLiftTo: (dayId: String, workoutLiftId: String, toDayId: String, message: String) -> Unit = { _, _, _, _ -> },
     val onRemoveSheetLift: (dayId: String, workoutLiftId: String, message: String) -> Unit = { _, _, _ -> },
     val onUndoSheetLift: () -> Unit = {},
     val onDismissSheetUndo: () -> Unit = {},

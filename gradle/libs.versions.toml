@@ -40,6 +40,7 @@ hiltAndroidx = "1.4.0"
 shadow = "9.6.1"
 firebaseAdmin = "9.10.0"
 healthConnect = "1.2.0-alpha06"
+window = "1.5.1"
 billing = "9.1.0"
 screenshot = "0.0.1-alpha16"
 
@@ -118,6 +119,7 @@ androidx-datastore = { group = "androidx.datastore", name = "datastore", version
 vico-compose = { group = "com.patrykandpatrick.vico", name = "compose", version.ref = "vico" }
 vico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3", version.ref = "vico" }
 androidx-health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "healthConnect" }
+androidx-window = { group = "androidx.window", name = "window", version.ref = "window" }
 screenshot-validation-api = { group = "com.android.tools.screenshot", name = "screenshot-validation-api", version.ref = "screenshot" }
 
 [plugins]

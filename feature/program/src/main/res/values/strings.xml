@@ -110,6 +110,9 @@
     <string name="create_program_options_a11y">Program options</string>
     <string name="create_program_reorder_workouts">Reorder Workouts</string>
     <string name="create_program_rename_program_menu">Rename Program</string>
+    <string name="create_program_sheet_dashboard">Dashboard</string>
+    <string name="create_program_sheet_weekly_volume">Weekly volume</string>
+    <string name="create_program_sheet_workouts">Workouts</string>
     <string name="create_program_sheet_column_lift">Lift</string>
     <string name="create_program_sheet_column_sets">Sets</string>
     <string name="create_program_sheet_column_reps">Reps</string>
@@ -126,6 +129,11 @@
     <string name="create_program_sheet_set_rir">Set RIR</string>
     <string name="create_program_sheet_set_rep_range">Set rep range</string>
     <string name="create_program_sheet_move_to">Move to</string>
+    <string name="create_program_sheet_move_here">%1$s · Here</string>
+    <string name="create_program_sheet_contributes">This lift contributes</string>
+    <string name="create_program_sheet_primary">Primary</string>
+    <string name="create_program_sheet_secondary">Secondary</string>
+    <string name="create_program_sheet_program_totals">Program totals</string>
     <string name="create_program_sheet_delete">Delete</string>
     <string name="create_program_sheet_added_set">Added 1 set to each selected lift.</string>
     <string name="create_program_sheet_removed_set">Removed 1 set.</string>

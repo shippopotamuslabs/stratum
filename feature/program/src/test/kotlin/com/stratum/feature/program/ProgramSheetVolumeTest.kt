@@ -5,6 +5,7 @@ import com.stratum.application.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
 import com.stratum.core.ui.component.toLowerVolumeCards
 import com.stratum.core.ui.component.toUpperVolumeCards
+import com.stratum.core.ui.component.toVolumeDisplayName
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -341,6 +342,94 @@ class ProgramSheetVolumeTest {
             )
         }
     }
+
+    @Test
+    @DisplayName("inspector dashboard numbers equal the strip and the pivot")
+    fun inspectorMatchesStripAndPivot() {
+        val days = fixtureDays().withStoredCards()
+        val metrics = programSheetMetricsFromEditorDays(days)
+        val strip = programSheetVolumeStrip(metrics)
+        val pivot = programSheetVolumePivot(metrics, days)
+        val dashboard = programSheetInspectorDashboard(metrics, days)
+
+        assertEquals(strip.programMuscles, dashboard.muscles)
+        assertEquals(strip.programSetTotal, dashboard.programSetTotal)
+        assertEquals(pivot, dashboard.pivot)
+        assertEquals(
+            metrics.workouts.map { workout ->
+                Triple(workout.dayId, workout.setTotal, workout.estimatedDurationMinutes)
+            },
+            dashboard.workouts.map { workout ->
+                Triple(workout.dayId, workout.setTotal, workout.estimatedDurationMinutes)
+            },
+        )
+        assertEquals(listOf("Push", "Legs"), dashboard.workouts.map { workout -> workout.name })
+    }
+
+    @Test
+    @DisplayName("a lift's contribution follows its set count through the volume use case")
+    fun liftContributionFollowsSetCount() {
+        val three = creditedBench(setCount = 3)
+        val chest = MuscleGroup.Chest.toVolumeDisplayName()
+        val triceps = MuscleGroup.Tricep.toVolumeDisplayName()
+        assertEquals(3.0, three.first { credit -> credit.muscleName == chest }.sets, 0.0)
+        assertTrue(three.first { credit -> credit.muscleName == chest }.primary)
+        assertEquals(1.5, three.first { credit -> credit.muscleName == triceps }.sets, 0.0)
+        assertFalse(three.first { credit -> credit.muscleName == triceps }.primary)
+
+        val four = creditedBench(setCount = 4)
+        assertEquals(4.0, four.first { credit -> credit.muscleName == chest }.sets, 0.0)
+        assertEquals(2.0, four.first { credit -> credit.muscleName == triceps }.sets, 0.0)
+    }
+
+    @Test
+    @DisplayName("the inspector contribution block pairs credits with program totals and the workout total")
+    fun inspectorContributionPairsCreditsWithTotals() {
+        val days = fixtureDays().withStoredCards()
+        val dashboard = programSheetInspectorDashboard(programSheetMetricsFromEditorDays(days), days)
+        val credits = creditedBench(setCount = 3)
+
+        val contribution = inspectorLiftContribution(credits = credits, dashboard = dashboard)
+
+        val chestTotal = dashboard.muscles.first { muscle -> muscle.muscleName == MuscleGroup.Chest.toVolumeDisplayName() }.sets
+        val chestRow = contribution.rows.first { row -> row.muscleName == MuscleGroup.Chest.toVolumeDisplayName() }
+        assertEquals(3.0, chestRow.creditSets, 0.0)
+        assertTrue(chestRow.primary)
+        assertEquals(chestTotal, chestRow.programSets, 0.0)
+        val tricepsRow = contribution.rows.first { row -> row.muscleName == MuscleGroup.Tricep.toVolumeDisplayName() }
+        assertFalse(tricepsRow.primary)
+        assertEquals(1.5, tricepsRow.creditSets, 0.0)
+
+        val unknown =
+            inspectorLiftContribution(
+                credits =
+                    listOf(
+                        com.stratum.feature.program.ui.EditLiftMuscleCredit(
+                            muscleName = "Nowhere",
+                            sets = 2.0,
+                            primary = true,
+                        ),
+                    ),
+                dashboard = dashboard,
+            )
+        assertEquals(2.0, unknown.rows.single().programSets, 0.0)
+    }
+
+    private fun creditedBench(setCount: Int) =
+        day(
+            id = DAY_A,
+            name = "Push",
+            isRest = false,
+            lifts = listOf(editLift(workoutLiftId = LIFT_A, liftId = BENCH_ID, setCount = setCount)),
+        ).editState!!
+            .withDerivedMetrics(
+                CATALOG,
+                null,
+                computeWorkoutMuscleVolume,
+                estimateWorkoutDurationMinutes,
+            ).lifts
+            .single()
+            .muscleCredits
 
     private fun derive(days: List<CreateProgramDayUi>): ProgramSheetMetrics =
         programSheetMetricsFromEditorDays(days.withStoredCards())

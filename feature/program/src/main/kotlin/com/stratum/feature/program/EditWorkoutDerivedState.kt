@@ -2,6 +2,7 @@ package com.stratum.feature.program
 
 import com.stratum.core.ui.component.toLowerVolumeCards
 import com.stratum.core.ui.component.toUpperVolumeCards
+import com.stratum.core.ui.component.toVolumeDisplayName
 import com.stratum.domain.lift.Lift
 import com.stratum.application.program.ComputeWorkoutMuscleVolumeUseCase
 import com.stratum.domain.program.DurationSetInput
@@ -9,6 +10,7 @@ import com.stratum.application.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.WorkoutLiftVolumeInput
 import com.stratum.domain.program.WorkoutLiftDurationInput
+import com.stratum.feature.program.ui.EditLiftMuscleCredit
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditWorkoutUiState
 
@@ -36,6 +38,7 @@ internal fun EditWorkoutUiState.Loaded.withDerivedMetrics(
             )
         }
     val volumeSummaries = computeWorkoutMuscleVolume(volumeInputs, liftCatalog)
+    val creditedLifts = lifts.withMuscleCredits(liftCatalog, computeWorkoutMuscleVolume)
     val programVolumeSummaries =
         program?.let { activeProgram ->
             val programVolumeInputs =
@@ -47,6 +50,7 @@ internal fun EditWorkoutUiState.Loaded.withDerivedMetrics(
             computeWorkoutMuscleVolume(programVolumeInputs, liftCatalog)
         }.orEmpty()
     return copy(
+        lifts = creditedLifts,
         upperVolumeByMuscle = volumeSummaries.toUpperVolumeCards(),
         lowerVolumeByMuscle = volumeSummaries.toLowerVolumeCards(),
         programUpperVolumeByMuscle = programVolumeSummaries.toUpperVolumeCards(),
@@ -72,6 +76,43 @@ internal fun buildProgramVolumeInputsWithEditedWorkout(
             }
         }
     }
+
+private fun List<EditLiftState>.withMuscleCredits(
+    liftCatalog: List<Lift>,
+    computeWorkoutMuscleVolume: ComputeWorkoutMuscleVolumeUseCase,
+): List<EditLiftState> {
+    if (isEmpty() || liftCatalog.isEmpty()) return this
+    val primaryNamesByLiftId =
+        liftCatalog.associate { lift ->
+            lift.id.value to lift.primaryMuscles.map { muscle -> muscle.toVolumeDisplayName() }.toSet()
+        }
+    var changed = false
+    val credited =
+        map { lift ->
+            val summaries =
+                computeWorkoutMuscleVolume(
+                    listOf(WorkoutLiftVolumeInput(liftId = lift.liftId, setCount = lift.sets.size)),
+                    liftCatalog,
+                )
+            val primaryNames = primaryNamesByLiftId[lift.liftId].orEmpty()
+            val credits =
+                summaries.map { summary ->
+                    val name = summary.muscle.toVolumeDisplayName()
+                    EditLiftMuscleCredit(
+                        muscleName = name,
+                        sets = summary.setCount,
+                        primary = name in primaryNames,
+                    )
+                }
+            if (credits == lift.muscleCredits) {
+                lift
+            } else {
+                changed = true
+                lift.copy(muscleCredits = credits)
+            }
+        }
+    return if (changed) credited else this
+}
 
 internal fun List<EditLiftState>.toVolumeInputs(): List<WorkoutLiftVolumeInput> =
     map { lift ->
