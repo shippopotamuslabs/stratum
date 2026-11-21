@@ -2,7 +2,6 @@ package com.stratum.feature.workout.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -23,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumBottomSheet
+import com.stratum.core.ui.component.stratumSheetOptionRow
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumSetTypeColors
@@ -62,14 +62,11 @@ private fun SetTypeOptionRow(
     onClick: () -> Unit,
 ) {
     val colors = StratumThemeAccessor.colors
-    val shapes = StratumThemeAccessor.shapes
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(color = colors.surfaceRaised, shape = shapes.panel)
-                .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
-                .clickable(onClick = onClick)
+                .stratumSheetOptionRow(onClick = onClick)
                 .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
         horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
         verticalAlignment = Alignment.CenterVertically,

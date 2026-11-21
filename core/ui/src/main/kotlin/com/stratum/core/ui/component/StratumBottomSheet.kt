@@ -1,6 +1,8 @@
 package com.stratum.core.ui.component
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,9 +17,11 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -96,6 +100,28 @@ fun StratumKeyboardBottomSheet(
             )
         },
     )
+}
+
+/**
+ * The one interactive surface for a bottom sheet option row: raised panel,
+ * its border, then a clip to the panel shape ahead of the clickable, so the
+ * press highlight follows the row's rounded corners instead of spilling past
+ * them as a sharp rectangle. Every sheet option row builds on this chain, so
+ * the row shape and its press behavior cannot drift per sheet.
+ */
+@Composable
+fun Modifier.stratumSheetOptionRow(
+    onClick: () -> Unit,
+    backgroundColor: Color = StratumThemeAccessor.colors.surfaceRaised,
+    borderColor: Color = StratumThemeAccessor.colors.borderSubtle,
+    borderWidth: Dp = StratumThemeAccessor.shapes.borderWidth,
+): Modifier {
+    val shapes = StratumThemeAccessor.shapes
+    return this
+        .background(color = backgroundColor, shape = shapes.panel)
+        .border(width = borderWidth, color = borderColor, shape = shapes.panel)
+        .clip(shapes.panel)
+        .clickable(onClick = onClick)
 }
 
 private const val KEYBOARD_SHEET_SCRIM_ALPHA = 0.18f

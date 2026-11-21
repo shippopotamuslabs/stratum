@@ -1,7 +1,5 @@
 package com.stratum.core.ui.component
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -164,9 +162,11 @@ private fun EquipmentSwapOptionRow(
         modifier =
             modifier
                 .fillMaxWidth()
-                .background(color = colors.surfaceRaised, shape = shapes.panel)
-                .border(width = borderWidth, color = borderColor, shape = shapes.panel)
-                .clickable(onClick = onClick)
+                .stratumSheetOptionRow(
+                    onClick = onClick,
+                    borderColor = borderColor,
+                    borderWidth = borderWidth,
+                )
                 .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
         horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         verticalAlignment = Alignment.CenterVertically,

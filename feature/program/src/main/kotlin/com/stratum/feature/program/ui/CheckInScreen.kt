@@ -5,7 +5,6 @@ package com.stratum.feature.program.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumBottomSheet
+import com.stratum.core.ui.component.stratumSheetOptionRow
 import com.stratum.core.ui.component.StratumFilterChip
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumDetailScaffold
@@ -448,21 +448,15 @@ private fun SwapCandidateRow(
     onClick: () -> Unit,
 ) {
     val colors = StratumThemeAccessor.colors
-    val shapes = StratumThemeAccessor.shapes
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .border(
-                    width = shapes.borderWidth,
-                    color = if (candidate.selected) colors.accent else colors.borderSubtle,
-                    shape = shapes.panel,
+                .stratumSheetOptionRow(
+                    onClick = onClick,
+                    backgroundColor = if (candidate.selected) colors.accent else colors.surfaceRaised,
+                    borderColor = if (candidate.selected) colors.accent else colors.borderSubtle,
                 )
-                .background(
-                    color = if (candidate.selected) colors.accent else colors.surfaceRaised,
-                    shape = shapes.panel,
-                )
-                .clickable(onClick = onClick)
                 .padding(StratumSpacing.s12),
         verticalAlignment = Alignment.CenterVertically,
     ) {
