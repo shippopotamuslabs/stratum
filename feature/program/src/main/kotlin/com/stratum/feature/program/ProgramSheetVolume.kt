@@ -39,7 +39,6 @@ internal data class ProgramSheetVolumePivot(
 /** One muscle chip. [countText] is [formatSheetSetCount]. */
 internal data class ProgramSheetVolumeChip(
     val muscleName: String,
-    val sets: Double,
     val countText: String,
 )
 
@@ -110,9 +109,6 @@ internal fun programSheetVolumePivot(
 internal fun formatSheetSetCount(sets: Double): String =
     String.format(Locale.US, ONE_DECIMAL, sets)
 
-internal fun programSheetVolumeMuscleLabel(name: String, sets: Double): String =
-    "$name ${formatSheetSetCount(sets)}"
-
 /**
  * Ordered chip model for the pinned strip and each workout header.
  * Same muscles, order, and counts as [muscles]. [ProgramSheetVolumeChip.countText]
@@ -122,7 +118,6 @@ internal fun programSheetVolumeChips(muscles: List<ProgramSheetMuscleSets>): Lis
     muscles.map { muscle ->
         ProgramSheetVolumeChip(
             muscleName = muscle.muscleName,
-            sets = muscle.sets,
             countText = formatSheetSetCount(muscle.sets),
         )
     }

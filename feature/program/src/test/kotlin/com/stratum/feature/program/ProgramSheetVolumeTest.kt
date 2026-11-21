@@ -289,11 +289,11 @@ class ProgramSheetVolumeTest {
     }
 
     @Test
-    @DisplayName("muscle labels use one decimal in Locale.US")
-    fun muscleLabelUsesUsDecimal() {
-        assertEquals("Chest 13.0", programSheetVolumeMuscleLabel("Chest", 13.0))
-        val fractional = programSheetVolumeMuscleLabel("Back", 2.5)
-        assertEquals("Back 2.5", fractional)
+    @DisplayName("set counts use one decimal in Locale.US")
+    fun setCountsUseUsDecimal() {
+        assertEquals("13.0", formatSheetSetCount(13.0))
+        val fractional = formatSheetSetCount(2.5)
+        assertEquals("2.5", fractional)
         assertFalse(fractional.contains(','))
         val chips =
             programSheetVolumeChips(
@@ -304,8 +304,8 @@ class ProgramSheetVolumeTest {
                 ),
             )
         assertEquals(
-            listOf("Chest" to 4.0, "Back" to 4.0, "Triceps" to 4.0),
-            chips.map { chip -> chip.muscleName to chip.sets },
+            listOf("Chest", "Back", "Triceps"),
+            chips.map { chip -> chip.muscleName },
         )
         assertEquals(listOf("4.0", "4.0", "4.0"), chips.map { chip -> chip.countText })
         assertTrue(chips.none { chip -> chip.countText.contains(',') })
@@ -321,8 +321,8 @@ class ProgramSheetVolumeTest {
         val cards = sheet.programCards().filter { card -> card.setCount != 0.0 }
 
         assertEquals(
-            cards.map { card -> card.displayName to card.setCount },
-            chips.map { chip -> chip.muscleName to chip.sets },
+            cards.map { card -> card.displayName },
+            chips.map { chip -> chip.muscleName },
         )
         assertEquals(
             cards.map { card -> formatSheetSetCount(card.setCount) },
@@ -332,8 +332,8 @@ class ProgramSheetVolumeTest {
             val workoutCards = workout.cards().filter { card -> card.setCount != 0.0 }
             val workoutChips = programSheetVolumeChips(programSheetMuscleSets(workout.cards()))
             assertEquals(
-                workoutCards.map { card -> card.displayName to card.setCount },
-                workoutChips.map { chip -> chip.muscleName to chip.sets },
+                workoutCards.map { card -> card.displayName },
+                workoutChips.map { chip -> chip.muscleName },
             )
             assertEquals(
                 workoutCards.map { card -> formatSheetSetCount(card.setCount) },
