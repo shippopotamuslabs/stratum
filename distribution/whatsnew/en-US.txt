@@ -1,3 +1,1 @@
-The program editor is one sheet now. Every workout in a program sits on a single scrolling page, and tapping a lift opens its full editor in place.
-
-Cut, copy, and paste move lifts between workouts. Multi-select edits sets, reps, and RIR across several lifts at once, and undo restores the lifts you changed. The pinned volume strip and the muscle by workout table update as you edit.
+Sheet Mode polish: a cut or copied lift now pastes from a dashed slot at the end of each workout, labeled with the lift's name. The volume table keeps every muscle name beside its numbers at full scroll. Bottom sheet rows press inside their rounded corners, and Remove sits last in the workout menu.
