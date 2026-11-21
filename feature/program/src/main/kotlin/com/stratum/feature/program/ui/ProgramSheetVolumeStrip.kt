@@ -164,9 +164,11 @@ internal fun ProgramSheetVolumePivotTable(
 }
 
 /**
- * Wrapping muscle chips. Same chrome as [com.stratum.core.ui.component.MetadataBadge],
- * the muscle tag on library days and lift rows. The count uses a fixed slot so a
- * set edit does not change chip width or reflow the sheet.
+ * Wrapping muscle chips, at most [SHEET_VOLUME_CHIP_MAX_LINES] lines.
+ * Same chrome as [com.stratum.core.ui.component.MetadataBadge], the muscle tag
+ * on library days and lift rows. The count uses a fixed slot so a set edit
+ * does not change chip width or reflow the sheet. Chips past the second line
+ * stay in the pivot table.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -182,6 +184,7 @@ internal fun SheetVolumeChips(
                 .padding(top = StratumSpacing.s4),
         horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
+        maxLines = SHEET_VOLUME_CHIP_MAX_LINES,
     ) {
         for (chip in chips) {
             SheetVolumeChip(name = chip.muscleName, countText = chip.countText)
@@ -317,6 +320,7 @@ private fun VolumeCountCell(sets: Double) {
 }
 
 private const val TABULAR_FIGURES = "tnum"
+private const val SHEET_VOLUME_CHIP_MAX_LINES = 2
 private const val PIVOT_TABLE_HEIGHT_FRACTION = 0.55f
 private val VolumeRowHeight = StratumSpacing.s32
 private val VolumeNameMinWidth = StratumSpacing.s64 + StratumSpacing.s32
