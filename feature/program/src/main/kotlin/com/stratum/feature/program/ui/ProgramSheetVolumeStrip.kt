@@ -164,11 +164,13 @@ internal fun ProgramSheetVolumePivotTable(
 }
 
 /**
- * Wrapping muscle chips, at most [SHEET_VOLUME_CHIP_MAX_LINES] lines.
- * Same chrome as [com.stratum.core.ui.component.MetadataBadge], the muscle tag
- * on library days and lift rows. The count uses a fixed slot so a set edit
- * does not change chip width or reflow the sheet. Chips past the second line
- * stay in the pivot table.
+ * Wrapping muscle chips, at most [SHEET_VOLUME_CHIP_MAX_LINES] lines, in the
+ * tonal chip chrome (accentMuted container, onAccentMuted content, the
+ * [com.stratum.core.ui.component.StratumChip] convention): the earlier
+ * surfaceInset fill sat within a shade of the sheet background in light theme
+ * and the chips disappeared. The count uses a fixed slot so a set edit does
+ * not change chip width or reflow the sheet. Chips past the second line stay
+ * in the pivot table.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -202,7 +204,7 @@ private fun SheetVolumeChip(
     Row(
         modifier =
             Modifier
-                .background(color = colors.surfaceInset, shape = shapes.chip)
+                .background(color = colors.accentMuted, shape = shapes.chip)
                 .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
         horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
         verticalAlignment = Alignment.CenterVertically,
@@ -210,7 +212,7 @@ private fun SheetVolumeChip(
         StratumText(
             text = name,
             style = StratumThemeAccessor.typography.sectionLabel,
-            muted = true,
+            color = colors.onAccentMuted,
             maxLines = 1,
         )
         StratumNumber(
@@ -218,6 +220,7 @@ private fun SheetVolumeChip(
             modifier = Modifier.width(StratumSpacing.s48),
             style =
                 StratumThemeAccessor.typography.sectionLabel.copy(
+                    color = colors.onAccentMuted,
                     fontFeatureSettings = TABULAR_FIGURES,
                 ),
             maxLines = 1,
