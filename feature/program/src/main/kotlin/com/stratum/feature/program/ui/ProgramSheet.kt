@@ -2,8 +2,6 @@ package com.stratum.feature.program.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -66,6 +64,7 @@ import com.stratum.feature.program.ProgramSheetLiftStep
 import com.stratum.feature.program.ProgramSheetLiftTarget
 import com.stratum.feature.program.ProgramSheetPadMoment
 import com.stratum.feature.program.ProgramSheetRow
+import com.stratum.feature.program.ProgramSheetVolumeChip
 import com.stratum.feature.program.R
 import com.stratum.feature.program.sheetSetTotal
 import com.stratum.feature.program.SheetPlacedItem
@@ -78,7 +77,7 @@ import com.stratum.feature.program.programSheetLiftIndex
 import com.stratum.feature.program.programSheetMuscleSets
 import com.stratum.feature.program.programSheetPadAction
 import com.stratum.feature.program.programSheetRows
-import com.stratum.feature.program.programSheetVolumeMuscleLine
+import com.stratum.feature.program.programSheetVolumeChips
 import com.stratum.feature.program.sheetStickyHeaderOverlapPx
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -633,14 +632,13 @@ private fun ProgramSheetStickyWorkout(
                 stringResource(R.string.create_program_sheet_copied, held.lift.name)
             null -> null
         }
+    val muscles = programSheetMuscleSets(edit.upperVolumeByMuscle + edit.lowerVolumeByMuscle)
+    val chips = remember(muscles) { programSheetVolumeChips(muscles) }
     ProgramSheetWorkoutHeader(
         day = day,
         setTotal = sheetSetTotal(edit.lifts),
         minutes = edit.estimatedDurationMinutes,
-        muscleLine =
-            programSheetVolumeMuscleLine(
-                programSheetMuscleSets(edit.upperVolumeByMuscle + edit.lowerVolumeByMuscle),
-            ),
+        chips = chips,
         onAddLift = { onAddLift(day.id) },
         onOpenMenu = { onOpenMenu(day.id) },
         onPaste = pasteMessage?.let { message -> { onPaste(day.id, message) } },
@@ -652,7 +650,7 @@ private fun ProgramSheetWorkoutHeader(
     day: CreateProgramDayUi,
     setTotal: Int,
     minutes: Int,
-    muscleLine: String,
+    chips: List<ProgramSheetVolumeChip>,
     onAddLift: () -> Unit,
     onOpenMenu: () -> Unit,
     onPaste: (() -> Unit)? = null,
@@ -704,25 +702,7 @@ private fun ProgramSheetWorkoutHeader(
             muted = true,
             style = StratumThemeAccessor.typography.bodyMedium,
         )
-        if (muscleLine.isNotEmpty()) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                StratumText(
-                    text = muscleLine,
-                    muted = true,
-                    style =
-                        StratumThemeAccessor.typography.bodyMedium.copy(
-                            fontFeatureSettings = SHEET_TABULAR_FIGURES,
-                        ),
-                    maxLines = 1,
-                )
-            }
-        }
+        SheetVolumeChips(chips = chips)
         if (onPaste != null) {
             StratumTextButton(
                 text = stringResource(R.string.create_program_sheet_paste_here),
@@ -1013,7 +993,6 @@ internal fun sheetRestLabel(sets: List<EditSetState>): String {
 }
 
 private const val SHEET_WORKOUT_HEADER_KEY_PREFIX = "header-"
-private const val SHEET_TABULAR_FIGURES = "tnum"
 
 /** Matches [StratumIconButton]'s 40dp container so lift columns stay under the header. */
 internal val ProgramSheetLiftActionsSlot = 40.dp

@@ -2,8 +2,11 @@ package com.stratum.feature.program.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -37,11 +40,12 @@ import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.CreateProgramUiState
+import com.stratum.feature.program.ProgramSheetVolumeChip
 import com.stratum.feature.program.ProgramSheetVolumePivot
 import com.stratum.feature.program.R
 import com.stratum.feature.program.formatSheetSetCount
 import com.stratum.feature.program.programSheetMetricsFromEditorDays
-import com.stratum.feature.program.programSheetVolumeMuscleLine
+import com.stratum.feature.program.programSheetVolumeChips
 import com.stratum.feature.program.programSheetVolumePivot
 import com.stratum.feature.program.programSheetVolumeStrip
 
@@ -59,7 +63,8 @@ internal fun ProgramSheetVolumeStrip(
     val strip = programSheetVolumeStrip(metrics)
     val pivot = programSheetVolumePivot(metrics, state.days)
     var open by remember { mutableStateOf(false) }
-    val muscleLine = programSheetVolumeMuscleLine(strip.programMuscles)
+    val muscles = strip.programMuscles
+    val chips = remember(muscles) { programSheetVolumeChips(muscles) }
     Column(
         modifier =
             modifier
@@ -73,24 +78,7 @@ internal fun ProgramSheetVolumeStrip(
             programSetTotal = strip.programSetTotal,
             onOpenPivot = { open = true },
         )
-        if (muscleLine.isNotEmpty()) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                StratumText(
-                    text = muscleLine,
-                    style =
-                        StratumThemeAccessor.typography.bodyMedium.copy(
-                            fontFeatureSettings = TABULAR_FIGURES,
-                        ),
-                    maxLines = 1,
-                )
-            }
-        }
+        SheetVolumeChips(chips = chips)
     }
     if (open) {
         StratumBottomSheet(
@@ -172,6 +160,66 @@ internal fun ProgramSheetVolumePivotTable(
                 VolumeCountCell(pivot.cornerTotal)
             }
         }
+    }
+}
+
+/**
+ * Wrapping muscle chips. Same chrome as [com.stratum.core.ui.component.MetadataBadge],
+ * the muscle tag on library days and lift rows. The count uses a fixed slot so a
+ * set edit does not change chip width or reflow the sheet.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun SheetVolumeChips(
+    chips: List<ProgramSheetVolumeChip>,
+    modifier: Modifier = Modifier,
+) {
+    if (chips.isEmpty()) return
+    FlowRow(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(top = StratumSpacing.s4),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
+    ) {
+        for (chip in chips) {
+            SheetVolumeChip(name = chip.muscleName, countText = chip.countText)
+        }
+    }
+}
+
+@Composable
+private fun SheetVolumeChip(
+    name: String,
+    countText: String,
+) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    Row(
+        modifier =
+            Modifier
+                .background(color = colors.surfaceInset, shape = shapes.chip)
+                .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StratumText(
+            text = name,
+            style = StratumThemeAccessor.typography.sectionLabel,
+            muted = true,
+            maxLines = 1,
+        )
+        StratumNumber(
+            text = countText,
+            modifier = Modifier.width(StratumSpacing.s48),
+            style =
+                StratumThemeAccessor.typography.sectionLabel.copy(
+                    fontFeatureSettings = TABULAR_FIGURES,
+                ),
+            maxLines = 1,
+            textAlign = TextAlign.End,
+        )
     }
 }
 
