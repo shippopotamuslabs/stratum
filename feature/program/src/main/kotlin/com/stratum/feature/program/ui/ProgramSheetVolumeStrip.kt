@@ -179,8 +179,8 @@ internal fun ProgramSheetVolumePivotTable(
 }
 
 /**
- * Wrapping muscle chips for a workout header, in the tonal chip chrome
- * (accentMuted container, onAccentMuted content, the
+ * Muscle chips for a workout header on one scrolling line, in the tonal
+ * chip chrome (accentMuted container, onAccentMuted content, the
  * [com.stratum.core.ui.component.StratumChip] convention): the earlier
  * surfaceInset fill sat within a shade of the sheet background in light theme
  * and the chips disappeared. The count uses a fixed slot so a set edit does
@@ -197,9 +197,10 @@ internal fun SheetVolumeChips(
         modifier =
             modifier
                 .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
                 .padding(top = StratumSpacing.s4),
         horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
-        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
+        maxLines = 1,
     ) {
         for (chip in chips) {
             SheetVolumeChip(name = chip.muscleName, countText = chip.countText)
