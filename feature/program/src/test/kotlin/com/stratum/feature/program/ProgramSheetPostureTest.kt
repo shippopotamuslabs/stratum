@@ -7,7 +7,11 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
+/** Robolectric so the fixture's [Rect] carries real bounds. */
+@ExtendWith(RobolectricExtension::class)
 class ProgramSheetPostureTest {
     @Test
     @DisplayName("flat hinge bounds split around the hinge")

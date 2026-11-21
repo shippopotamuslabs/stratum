@@ -58,6 +58,7 @@ import com.stratum.core.ui.trainingsetup.MinimumVolumePreferencesScreen
 import com.stratum.core.ui.trainingsetup.SchedulePreferencesScreen
 import com.stratum.core.ui.trainingsetup.SpecializationPreferencesScreen
 import com.stratum.feature.program.ActiveSessionDiscardReason
+import com.stratum.feature.program.SheetHingeGap
 import com.stratum.feature.program.SheetPosture
 import com.stratum.feature.program.CreateProgramGenerateState
 import com.stratum.feature.program.CreateProgramStep
@@ -65,6 +66,51 @@ import com.stratum.feature.program.CreateProgramUiState
 import com.stratum.feature.program.R
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withTimeoutOrNull
+
+/**
+ * Centers the top bar title over the left pane when a hinge splits the
+ * window: the title shifts from window center toward the pane center.
+ */
+/** Editor top bar actions: Dashboard in two-pane, then program options. */
+@Composable
+private fun androidx.compose.foundation.layout.RowScope.CreateProgramEditorTopBarActions(
+    twoPane: Boolean,
+    onShowDashboard: () -> Unit,
+    onShowProgramOptions: () -> Unit,
+) {
+    if (twoPane) {
+        StratumTopBarTextButton(
+            text = stringResource(R.string.create_program_sheet_dashboard),
+            onClick = onShowDashboard,
+        )
+    }
+    StratumIconButton(
+        onClick = onShowProgramOptions,
+        modifier = Modifier.padding(end = StratumSpacing.s8),
+    ) {
+        Icon(
+            painter = painterResource(CoreUiR.drawable.ic_more_vert),
+            contentDescription = stringResource(R.string.create_program_options_a11y),
+            tint = StratumThemeAccessor.colors.textPrimary,
+        )
+    }
+}
+
+/** Inspector selection holder for the sheet, seeded with any deep-linked lift. */
+@Composable
+private fun rememberSheetInspectorState(isEditor: Boolean): ProgramSheetInspectorState {
+    val seededLift = LocalInitialProgramSheetLift.current
+    return remember(isEditor, seededLift) { ProgramSheetInspectorState(seededLift) }
+}
+
+private fun sheetTitleShift(
+    hinge: SheetHingeGap?,
+    isEditor: Boolean,
+    screenWidthDp: Int,
+): Dp {
+    if (hinge == null || !isEditor) return 0.dp
+    return screenWidthDp.dp * ((hinge.start / 2f) - 0.5f)
+}
 
 @Composable
 fun CreateProgramScreen(
@@ -76,19 +122,14 @@ fun CreateProgramScreen(
 ) {
     val isEditor = state.step == CreateProgramStep.Editor
     val posture = rememberSheetPosture()
-    val seededLift = LocalInitialProgramSheetLift.current
-    val inspector =
-        remember(isEditor, seededLift) {
-            ProgramSheetInspectorState(seededLift)
-        }
+    val inspector = rememberSheetInspectorState(isEditor)
     val hinge = (posture as? SheetPosture.TwoPane)?.hinge
     val titleShift =
-        if (hinge == null || !isEditor) {
-            0.dp
-        } else {
-            val width = LocalConfiguration.current.screenWidthDp.dp
-            width * ((hinge.start / 2f) - 0.5f)
-        }
+        sheetTitleShift(
+            hinge = hinge,
+            isEditor = isEditor,
+            screenWidthDp = LocalConfiguration.current.screenWidthDp,
+        )
     val topBarTitle =
         when {
             isEditor && state.programName.isNotBlank() -> state.programName
@@ -163,26 +204,14 @@ fun CreateProgramScreen(
                 actions =
                     if (isEditor) {
                         {
-                            if (posture is SheetPosture.TwoPane) {
-                                StratumTopBarTextButton(
-                                    text = stringResource(R.string.create_program_sheet_dashboard),
-                                    onClick = inspector::returnToDashboard,
-                                )
-                            }
-                            StratumIconButton(
-                                onClick = {
+                            CreateProgramEditorTopBarActions(
+                                twoPane = posture is SheetPosture.TwoPane,
+                                onShowDashboard = inspector::returnToDashboard,
+                                onShowProgramOptions = {
                                     programOptionsMode = CreateProgramOptionsMode.Menu
                                     showProgramOptionsSheet = true
                                 },
-                                modifier = Modifier.padding(end = StratumSpacing.s8),
-                            ) {
-                                Icon(
-                                    painter = painterResource(CoreUiR.drawable.ic_more_vert),
-                                    contentDescription =
-                                        stringResource(R.string.create_program_options_a11y),
-                                    tint = StratumThemeAccessor.colors.textPrimary,
-                                )
-                            }
+                            )
                         }
                     } else {
                         null
