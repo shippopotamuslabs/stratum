@@ -413,9 +413,11 @@ fun LiftSwapOptionRow(
         modifier =
             modifier
                 .fillMaxWidth()
-                .background(color = colors.surfaceRaised, shape = shapes.panel)
-                .border(width = borderWidth, color = borderColor, shape = shapes.panel)
-                .clickable(onClick = onClick)
+                .stratumSheetOptionRow(
+                    onClick = onClick,
+                    borderColor = borderColor,
+                    borderWidth = borderWidth,
+                )
                 .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
         horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         verticalAlignment = Alignment.CenterVertically,
