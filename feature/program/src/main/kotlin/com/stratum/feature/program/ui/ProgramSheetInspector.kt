@@ -242,15 +242,17 @@ private fun ProgramSheetInspectorLift(
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         InspectorLiftHeader(lift = lift, workoutName = day.name)
-        ProgramSheetExpandedLift(
-            lift = lift,
-            allLifts = edit.lifts,
-            callbacks = editWorkoutCallbacks(callbacks).scopedToDay(day.id, callbacks.onSelectDay),
-            onCollapse = onCloseLift,
-            onShowLiftActions = { onShowLiftActions(lift.workoutLiftId) },
-            onRirClick = onRirClick,
-            onShowProgressionSchemeInfo = onShowProgressionSchemeInfo,
-        )
+        InspectorPanel {
+            ProgramSheetExpandedLift(
+                lift = lift,
+                allLifts = edit.lifts,
+                callbacks = editWorkoutCallbacks(callbacks).scopedToDay(day.id, callbacks.onSelectDay),
+                onCollapse = onCloseLift,
+                onShowLiftActions = { onShowLiftActions(lift.workoutLiftId) },
+                onRirClick = onRirClick,
+                onShowProgressionSchemeInfo = onShowProgressionSchemeInfo,
+            )
+        }
         InspectorLiftContributionBlock(lift = lift, dashboard = dashboard)
         InspectorLiftMoveTo(days = state.days, currentDayId = day.id, onMoveLiftTo = onMoveLiftTo)
     }
@@ -263,20 +265,12 @@ private fun InspectorLiftContributionBlock(
     dashboard: ProgramSheetInspectorDashboard,
 ) {
     if (lift.muscleCredits.isEmpty()) return
-    val colors = StratumThemeAccessor.colors
-    val shapes = StratumThemeAccessor.shapes
     val contribution =
         remember(lift.muscleCredits, dashboard) {
             inspectorLiftContribution(credits = lift.muscleCredits, dashboard = dashboard)
         }
-    Column(
-        modifier =
-            Modifier
-                .padding(horizontal = StratumSpacing.s16)
-                .background(color = colors.surfaceRaised, shape = shapes.panel)
-                .padding(StratumSpacing.s16),
-        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
-    ) {
+    InspectorPanel {
+        Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4)) {
         StratumText(
             text = stringResource(R.string.create_program_sheet_contributes),
             style = StratumThemeAccessor.typography.titleMedium,
@@ -310,12 +304,29 @@ private fun InspectorLiftContributionBlock(
             style = StratumThemeAccessor.typography.labelLarge,
             muted = true,
         )
-        StratumText(
-            text =
-                contribution.rows.joinToString(separator = " · ") { row ->
-                    "${row.muscleName} ${formatSheetSetCount(row.programSets)}"
-                },
-        )
+            StratumText(
+                text =
+                    contribution.rows.joinToString(separator = " · ") { row ->
+                        "${row.muscleName} ${formatSheetSetCount(row.programSets)}"
+                    },
+            )
+        }
+    }
+}
+
+/** The shared inset rounded card treatment for the inspector's blocks. */
+@Composable
+private fun InspectorPanel(content: @Composable () -> Unit) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    Box(
+        modifier =
+            Modifier
+                .padding(horizontal = StratumSpacing.s16)
+                .background(color = colors.surfaceRaised, shape = shapes.panel)
+                .padding(StratumSpacing.s16),
+    ) {
+        content()
     }
 }
 
