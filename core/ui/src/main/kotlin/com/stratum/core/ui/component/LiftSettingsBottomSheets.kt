@@ -286,12 +286,15 @@ fun LiftActionsBottomSheet(
     onConfigureSuperset: () -> Unit,
     onSwapLift: () -> Unit,
     onRemoveLift: () -> Unit,
-    onReorderLifts: () -> Unit,
+    onReorderLifts: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     onConfigureRestTimes: (() -> Unit)? = null,
     onManageNotes: (() -> Unit)? = null,
     onViewPastSessionNotes: (() -> Unit)? = null,
     onEditEquipment: (() -> Unit)? = null,
+    onCut: (() -> Unit)? = null,
+    onCopy: (() -> Unit)? = null,
+    onSelect: (() -> Unit)? = null,
 ) {
     StratumBottomSheet(
         onDismissRequest = onDismiss,
@@ -306,6 +309,9 @@ fun LiftActionsBottomSheet(
             onManageNotes = onManageNotes,
             onViewPastSessionNotes = onViewPastSessionNotes,
             onEditEquipment = onEditEquipment,
+            onCut = onCut,
+            onCopy = onCopy,
+            onSelect = onSelect,
         )
     }
 }
@@ -315,11 +321,14 @@ fun LiftActionsSheetContent(
     onConfigureSuperset: () -> Unit,
     onSwapLift: () -> Unit,
     onRemoveLift: () -> Unit,
-    onReorderLifts: () -> Unit,
+    onReorderLifts: (() -> Unit)? = null,
     onConfigureRestTimes: (() -> Unit)? = null,
     onManageNotes: (() -> Unit)? = null,
     onViewPastSessionNotes: (() -> Unit)? = null,
     onEditEquipment: (() -> Unit)? = null,
+    onCut: (() -> Unit)? = null,
+    onCopy: (() -> Unit)? = null,
+    onSelect: (() -> Unit)? = null,
 ) {
     val groups =
         visibleLiftActionGroups(
@@ -327,6 +336,10 @@ fun LiftActionsSheetContent(
             showRestTimes = onConfigureRestTimes != null,
             showManageNotes = onManageNotes != null,
             showPastNotes = onViewPastSessionNotes != null,
+            showCut = onCut != null,
+            showCopy = onCopy != null,
+            showSelect = onSelect != null,
+            showReorder = onReorderLifts != null,
         )
     groups.forEachIndexed { index, group ->
         if (index > 0) {
@@ -350,7 +363,7 @@ fun LiftActionsSheetContent(
                     LiftActionRow(
                         text = stringResource(CoreUiR.string.edit_workout_reorder_lifts),
                         leadingIconRes = CoreUiR.drawable.ic_swap_vert,
-                        onClick = onReorderLifts,
+                        onClick = onReorderLifts ?: {},
                     )
                 LiftActionItem.RestTimes ->
                     LiftActionRow(
@@ -376,6 +389,24 @@ fun LiftActionsSheetContent(
                         leadingIconRes = CoreUiR.drawable.ic_history,
                         onClick = onViewPastSessionNotes ?: {},
                     )
+                LiftActionItem.Select ->
+                    LiftActionRow(
+                        text = stringResource(CoreUiR.string.edit_workout_select_lift),
+                        leadingIconRes = CoreUiR.drawable.ic_check,
+                        onClick = onSelect ?: {},
+                    )
+                LiftActionItem.Cut ->
+                    LiftActionRow(
+                        text = stringResource(CoreUiR.string.edit_workout_cut_lift),
+                        leadingIconRes = CoreUiR.drawable.ic_content_cut,
+                        onClick = onCut ?: {},
+                    )
+                LiftActionItem.Copy ->
+                    LiftActionRow(
+                        text = stringResource(CoreUiR.string.edit_workout_copy_lift),
+                        leadingIconRes = CoreUiR.drawable.ic_copy,
+                        onClick = onCopy ?: {},
+                    )
                 LiftActionItem.Remove ->
                     LiftActionRow(
                         text = stringResource(CoreUiR.string.edit_workout_remove_lift),
@@ -397,6 +428,9 @@ internal enum class LiftActionItem {
     Superset,
     ManageNotes,
     PastNotes,
+    Select,
+    Cut,
+    Copy,
     Remove,
 }
 
@@ -413,6 +447,10 @@ internal fun visibleLiftActionGroups(
     showRestTimes: Boolean,
     showManageNotes: Boolean,
     showPastNotes: Boolean,
+    showCut: Boolean = false,
+    showCopy: Boolean = false,
+    showSelect: Boolean = false,
+    showReorder: Boolean = true,
 ): List<List<LiftActionItem>> {
     val primary =
         buildList {
@@ -420,7 +458,9 @@ internal fun visibleLiftActionGroups(
             if (showEditEquipment) {
                 add(LiftActionItem.EditEquipment)
             }
-            add(LiftActionItem.Reorder)
+            if (showReorder) {
+                add(LiftActionItem.Reorder)
+            }
         }
     val configure =
         buildList {
@@ -438,11 +478,20 @@ internal fun visibleLiftActionGroups(
                 add(LiftActionItem.PastNotes)
             }
         }
+    val transfer =
+        buildList {
+            if (showSelect) add(LiftActionItem.Select)
+            if (showCut) add(LiftActionItem.Cut)
+            if (showCopy) add(LiftActionItem.Copy)
+        }
     return buildList {
         add(primary)
         add(configure)
         if (notes.isNotEmpty()) {
             add(notes)
+        }
+        if (transfer.isNotEmpty()) {
+            add(transfer)
         }
         add(listOf(LiftActionItem.Remove))
     }

@@ -3,6 +3,8 @@ package com.stratum.feature.program
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -10,6 +12,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.feature.program.ui.CreateProgramScreen
 import com.stratum.feature.program.ui.CreateProgramScreenCallbacks
+import com.stratum.feature.program.ui.LocalProgramSheetClipboard
+import com.stratum.feature.program.ui.LocalProgramSheetSelection
 
 @Composable
 fun CreateProgramRoute(
@@ -24,6 +28,14 @@ fun CreateProgramRoute(
     viewModel: CreateProgramViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
+    val sheetUndoEpoch by viewModel.sheetUndoEpoch.collectAsStateWithLifecycle()
+    val sheetClipboard by viewModel.sheetClipboard.collectAsStateWithLifecycle()
+    val sheetSelection by viewModel.sheetSelection.collectAsStateWithLifecycle()
+
+    DisposableEffect(viewModel) {
+        onDispose { viewModel.clearSheetSelection() }
+    }
 
     LaunchedEffect(startInScratch, finishOnboarding, programId) {
         viewModel.configureEntry(
@@ -47,8 +59,14 @@ fun CreateProgramRoute(
         }
     }
 
-    CreateProgramScreen(
+    CompositionLocalProvider(
+        LocalProgramSheetClipboard provides sheetClipboard,
+        LocalProgramSheetSelection provides sheetSelection,
+    ) {
+        CreateProgramScreen(
         state = state,
+        userMessage = userMessage,
+        sheetUndoEpoch = sheetUndoEpoch,
         callbacks =
             CreateProgramScreenCallbacks(
                 onBack = {
@@ -85,6 +103,22 @@ fun CreateProgramRoute(
                 onAddExercise = { viewModel.addExerciseToSelectedDay(onSwapLiftClick) },
                 onUpdateSelectedWorkout = viewModel::updateSelectedWorkout,
                 onRemoveLift = viewModel::removeSelectedLift,
+                onCutSheetLift = viewModel::beginSheetCut,
+                onCopySheetLift = viewModel::beginSheetCopy,
+                onCancelSheetClipboard = viewModel::cancelSheetClipboard,
+                onPasteSheetLift = viewModel::pasteSheetLift,
+                onRemoveSheetLift = viewModel::removeSheetLift,
+                onUndoSheetLift = viewModel::undoSheetLiftChange,
+                onDismissSheetUndo = viewModel::dismissSheetLiftUndo,
+                onBeginSheetSelect = viewModel::beginSheetSelect,
+                onToggleSheetLift = viewModel::toggleSheetLift,
+                onCancelSheetSelection = viewModel::clearSheetSelection,
+                onAddSetToSheetSelection = viewModel::addSetToSheetSelection,
+                onRemoveSetFromSheetSelection = viewModel::removeSetFromSheetSelection,
+                onSetRirOnSheetSelection = viewModel::setRirOnSheetSelection,
+                onSetRepBandOnSheetSelection = viewModel::setRepBandOnSheetSelection,
+                onMoveSheetSelection = viewModel::moveSheetSelection,
+                onDeleteSheetSelection = viewModel::deleteSheetSelection,
                 onLinkSupersetWithPrevious = viewModel::linkSupersetWithPrevious,
                 onLinkSupersetWithNext = viewModel::linkSupersetWithNext,
                 onRemoveFromSuperset = viewModel::removeFromSuperset,
@@ -101,6 +135,7 @@ fun CreateProgramRoute(
                 onSaveToLibrary = { viewModel.saveToLibrary(onFinished) },
                 onSaveChanges = { viewModel.saveChanges(onFinished) },
                 onActivate = { viewModel.activate(onFinished) },
+                onRegisterOpenBulkRepCommit = viewModel::setOpenBulkRepCommit,
                 onConfirmDiscard = {
                     viewModel.dismissDiscard()
                     onBackClick()
@@ -110,7 +145,8 @@ fun CreateProgramRoute(
                 onDismissActiveSessionDiscard = viewModel::dismissActiveSessionDiscard,
             ),
         modifier = modifier.fillMaxSize(),
-    )
+        )
+    }
 }
 
 /**

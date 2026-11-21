@@ -51,6 +51,18 @@ internal class CreateProgramEditorController(
     var liftNamesById: Map<String, String> = emptyMap()
     var compoundByLiftId: Map<String, Boolean> = emptyMap()
 
+    /**
+     * Runs at the start of [persistNow], before the draft is read.
+     * The sheet commits an open bulk rep band here, while select mode is still on.
+     */
+    var onPersistProceeding: () -> Unit = {}
+
+    /**
+     * Day id captured before [CreateProgramActiveSessionGuard.inProgressSessionOrNull] suspends.
+     * Confirm-discard removes this id, not whichever day is selected after the wait.
+     */
+    private var pendingRemoveDayId: String? = null
+
     fun clearLoadedMeta() {
         loadedProgramMeta = null
     }
@@ -94,16 +106,23 @@ internal class CreateProgramEditorController(
             if (current.days.size <= 1) return@launch
             val session = activeSessionGuard.inProgressSessionOrNull()
             if (activeSessionGuard.isActiveWorkoutDay(selectedId, session)) {
+                pendingRemoveDayId = selectedId
                 activeSessionGuard.stageRemoveDayDiscard()
                 return@launch
             }
-            applyRemoveSelectedDay()
+            pendingRemoveDayId = null
+            state.update { snap ->
+                CreateProgramDayEditor.removeDay(snap, selectedId).withEditorDerivedMetrics()
+            }
         }
     }
 
     fun applyRemoveSelectedDay() {
+        val dayId = pendingRemoveDayId
+        pendingRemoveDayId = null
         state.update { current ->
-            CreateProgramDayEditor.removeSelectedDay(current).withEditorDerivedMetrics()
+            CreateProgramDayEditor.removeDay(current, dayId ?: current.selectedDayId)
+                .withEditorDerivedMetrics()
         }
     }
 
@@ -153,6 +172,14 @@ internal class CreateProgramEditorController(
         state.update { current ->
             CreateProgramDayEditor.updateSelectedWorkout(current, transform)
                 .withEditorDerivedMetrics()
+        }
+    }
+
+    /** Applies a pure day-list result. Same list instance is not dirty and does not refresh metrics. */
+    fun applyEditorDays(nextDays: List<CreateProgramDayUi>) {
+        state.update { current ->
+            if (nextDays === current.days) return@update current
+            current.copy(days = nextDays, isDirty = true).withEditorDerivedMetrics()
         }
     }
 
@@ -385,7 +412,9 @@ internal class CreateProgramEditorController(
     }
 
     private suspend fun persistNow(mode: CreateProgramPersistMode, onDone: () -> Unit) {
+        onPersistProceeding()
         val current = state.value
+        val writtenDays = current.days
         state.update { it.copy(isSaving = true, saveErrorMessage = null) }
         val draft = current.toDomainProgram(loadedProgramMeta)
         val failureMessage =
@@ -426,6 +455,10 @@ internal class CreateProgramEditorController(
                     }
             }
         if (failureMessage == null) {
+            if (state.value.days != writtenDays) {
+                state.update { it.copy(isSaving = false) }
+                return
+            }
             if (finishOnboarding() && mode == CreateProgramPersistMode.Activate) {
                 completeOnboarding(getUserTrainingProfile())
             }

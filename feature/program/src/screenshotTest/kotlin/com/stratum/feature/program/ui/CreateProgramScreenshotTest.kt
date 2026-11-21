@@ -83,13 +83,17 @@ fun createProgramGenerateErrorNeo() {
 @PreviewTest
 @PreviewLightDark
 @Composable
-fun createProgramEditorTonal() {
-    CreateProgramStepPreviewContent(family = StratumThemeId.Tonal, state = previewEditorState())
+fun createProgramSheetTonal() {
+    CreateProgramStepPreviewContent(family = StratumThemeId.Tonal, state = previewProgramSheetState())
 }
 
 @PreviewTest
 @PreviewLightDark
 @Composable
-fun createProgramEditorNeo() {
-    CreateProgramStepPreviewContent(family = StratumThemeId.NeoBrutalist, state = previewEditorState())
+fun createProgramSheetExpandedLiftTonal() {
+    CreateProgramStepPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewProgramSheetState(),
+        initialExpandedLift = previewSheetExpandedLift(),
+    )
 }

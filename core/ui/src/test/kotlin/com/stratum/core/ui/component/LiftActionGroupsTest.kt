@@ -48,4 +48,84 @@ class LiftActionGroupsTest {
             groups,
         )
     }
+
+    @Test
+    @DisplayName("Given cut and copy when grouped then they sit above remove and stay hidden otherwise")
+    fun cutAndCopySitAboveRemove() {
+        val groups =
+            visibleLiftActionGroups(
+                showEditEquipment = false,
+                showRestTimes = false,
+                showManageNotes = false,
+                showPastNotes = false,
+                showCut = true,
+                showCopy = true,
+            )
+
+        assertEquals(
+            listOf(
+                listOf(LiftActionItem.Swap, LiftActionItem.Reorder),
+                listOf(LiftActionItem.Superset),
+                listOf(LiftActionItem.Cut, LiftActionItem.Copy),
+                listOf(LiftActionItem.Remove),
+            ),
+            groups,
+        )
+    }
+
+    @Test
+    @DisplayName("Given select when grouped then it sits above cut and stays hidden otherwise")
+    fun selectSitsAboveCutAndStaysHiddenByDefault() {
+        val shown =
+            visibleLiftActionGroups(
+                showEditEquipment = false,
+                showRestTimes = false,
+                showManageNotes = false,
+                showPastNotes = false,
+                showCut = true,
+                showCopy = true,
+                showSelect = true,
+            )
+
+        assertEquals(
+            listOf(
+                listOf(LiftActionItem.Swap, LiftActionItem.Reorder),
+                listOf(LiftActionItem.Superset),
+                listOf(LiftActionItem.Select, LiftActionItem.Cut, LiftActionItem.Copy),
+                listOf(LiftActionItem.Remove),
+            ),
+            shown,
+        )
+        assertEquals(
+            false,
+            visibleLiftActionGroups(
+                showEditEquipment = false,
+                showRestTimes = false,
+                showManageNotes = false,
+                showPastNotes = false,
+            ).flatten().contains(LiftActionItem.Select),
+        )
+    }
+
+    @Test
+    @DisplayName("Given reorder hidden when grouped then the primary group drops it")
+    fun reorderDropsWhenHidden() {
+        val groups =
+            visibleLiftActionGroups(
+                showEditEquipment = true,
+                showRestTimes = false,
+                showManageNotes = false,
+                showPastNotes = false,
+                showReorder = false,
+            )
+
+        assertEquals(
+            listOf(
+                listOf(LiftActionItem.Swap, LiftActionItem.EditEquipment),
+                listOf(LiftActionItem.Superset),
+                listOf(LiftActionItem.Remove),
+            ),
+            groups,
+        )
+    }
 }

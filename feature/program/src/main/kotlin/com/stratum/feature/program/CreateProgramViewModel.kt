@@ -24,6 +24,7 @@ import com.stratum.application.training.ObserveActiveSessionUseCase
 import com.stratum.core.ui.component.SupersetLinkDirection
 import com.stratum.domain.workout.EditSessionEvent
 import com.stratum.domain.workout.WorkoutEditSession
+import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditWorkoutUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
@@ -43,7 +44,9 @@ import kotlinx.coroutines.launch
  * - [CreateProgramEditorController] — day/lift editor + save/activate
  */
 @HiltViewModel
-@Suppress("LongParameterList", "TooManyFunctions") // Hilt façade over the two controllers.
+// STR-216: STR-207 §2 exception — `userMessage` transient-snackbar side-flow
+// alongside `uiState`; bless-vs-migrate decision recorded on STR-216.
+@Suppress("LongParameterList", "TooManyFunctions", "ForbiddenMultipleStateFlowInViewModel")
 class CreateProgramViewModel @Inject constructor(
     generateProgram: GenerateProgramUseCase,
     activateProgram: ActivateProgramUseCase,
@@ -71,6 +74,20 @@ class CreateProgramViewModel @Inject constructor(
         CreateProgramUiState(programId = UUID.randomUUID().toString()),
     )
     val uiState: StateFlow<CreateProgramUiState> = _uiState.asStateFlow()
+
+    private val _userMessage = MutableStateFlow<String?>(null)
+    val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+
+    /** Bumps only when a new sheet undo snackbar is published, not when it is dismissed. */
+    private val _sheetUndoEpoch = MutableStateFlow(0)
+    val sheetUndoEpoch: StateFlow<Int> = _sheetUndoEpoch.asStateFlow()
+
+    private val _sheetClipboard = MutableStateFlow<ProgramSheetClipboard?>(null)
+
+    /** Sheet tray. Not on [CreateProgramUiState], so save and [toDomainProgram] never see it. */
+    internal val sheetClipboard: StateFlow<ProgramSheetClipboard?> = _sheetClipboard.asStateFlow()
+
+    private var sheetLiftUndo: ProgramSheetUndo? = null
 
     private var finishOnboarding: Boolean = false
     private var entryConfigured: Boolean = false
@@ -120,7 +137,31 @@ class CreateProgramViewModel @Inject constructor(
             generationLogger = generationLogger,
         )
 
+    private val sheetSelectionStore =
+        ProgramSheetSelectionStore(
+            scope = viewModelScope,
+            uiState = _uiState,
+            applyDays = editor::applyEditorDays,
+            publishUndo = { message, undo ->
+                sheetLiftUndo = undo
+                publishSheetUndo(
+                    publishSheetUndoMessage(currentEpoch = _sheetUndoEpoch.value, message = message),
+                )
+            },
+            returnPendingCut = ::returnPendingCut,
+        )
+
+    /** Sheet multi-select. Not on [CreateProgramUiState], so save and [toDomainProgram] never see it. */
+    internal val sheetSelection: StateFlow<ProgramSheetSelection> = sheetSelectionStore.selection
+
+    private var openBulkRepCommit: (() -> Unit)? = null
+
     init {
+        editor.onPersistProceeding = {
+            // Band first, while select mode is still on. Clear only once the save is writing.
+            openBulkRepCommit?.invoke()
+            sheetSelectionStore.clear()
+        }
         viewModelScope.launch {
             observeLiftCatalog().collect { lifts ->
                 editor.liftCatalog = lifts
@@ -265,6 +306,223 @@ class CreateProgramViewModel @Inject constructor(
         }
     }
 
+    fun userMessageShown() {
+        _userMessage.value = null
+    }
+
+    /** Sheet cut. Removes immediately. A pending cut is put back first, unless its day is gone. Not an undo entry. */
+    fun beginSheetCut(dayId: String, workoutLiftId: String) {
+        if (!returnPendingCut()) return
+        val days = _uiState.value.days
+        val day = days.firstOrNull { candidate -> candidate.id == dayId } ?: return
+        val edit = day.editState ?: return
+        if (day.isRest) return
+        val index = edit.lifts.indexOfFirst { lift -> lift.workoutLiftId == workoutLiftId }
+        if (index < 0) return
+        val next =
+            days.map { candidate ->
+                if (candidate.id != dayId) {
+                    candidate
+                } else {
+                    candidate.copy(
+                        editState =
+                            edit.copy(
+                                lifts = removeLiftAndCleanupSupersets(edit.lifts, workoutLiftId),
+                                isDirty = true,
+                            ),
+                    )
+                }
+            }
+        editor.applyEditorDays(next)
+        _sheetClipboard.value =
+            ProgramSheetClipboard(
+                kind = ProgramSheetClipboardKind.Cut,
+                fromDayId = dayId,
+                lift = edit.lifts[index],
+                originalIndex = index,
+                sourceLiftsBefore = edit.lifts,
+            )
+    }
+
+    /** Sheet copy. Holds a snapshot and does not change the workout. A pending cut is put back first. */
+    fun beginSheetCopy(dayId: String, workoutLiftId: String) {
+        if (!returnPendingCut()) return
+        val edit =
+            _uiState.value.days.firstOrNull { candidate -> candidate.id == dayId }?.editState
+                ?: return
+        val index = edit.lifts.indexOfFirst { lift -> lift.workoutLiftId == workoutLiftId }
+        if (index < 0) return
+        _sheetClipboard.value =
+            ProgramSheetClipboard(
+                kind = ProgramSheetClipboardKind.Copy,
+                fromDayId = dayId,
+                lift = edit.lifts[index],
+                originalIndex = index,
+                sourceLiftsBefore = edit.lifts,
+            )
+    }
+
+    /** Cancel. A cut is inserted back into the current list. A copy only clears the tray. Not an undo entry. */
+    fun cancelSheetClipboard() {
+        returnPendingCut()
+    }
+
+    fun beginSheetSelect(dayId: String?, workoutLiftId: String?) =
+        sheetSelectionStore.begin(
+            if (dayId == null || workoutLiftId == null) {
+                null
+            } else {
+                ProgramSheetLiftRef(dayId = dayId, workoutLiftId = workoutLiftId)
+            },
+        )
+
+    fun toggleSheetLift(dayId: String, workoutLiftId: String) {
+        sheetSelectionStore.toggle(ProgramSheetLiftRef(dayId = dayId, workoutLiftId = workoutLiftId))
+    }
+
+    /** Leaves select mode. Does not change lifts and does not push an undo entry. */
+    fun clearSheetSelection() = sheetSelectionStore.clear()
+
+    /** Sheet registers the open bulk rep pad. Null clears it when the sheet leaves. */
+    fun setOpenBulkRepCommit(commit: (() -> Unit)?) {
+        openBulkRepCommit = commit
+    }
+
+    fun addSetToSheetSelection(message: String) = sheetSelectionStore.addSet(message)
+
+    fun removeSetFromSheetSelection(message: String) = sheetSelectionStore.removeSet(message)
+
+    fun setRirOnSheetSelection(rir: Int, message: String) = sheetSelectionStore.setRir(rir, message)
+
+    fun setRepBandOnSheetSelection(repMin: Int, repMax: Int, message: String) =
+        sheetSelectionStore.setRepBand(repMin, repMax, message)
+
+    fun moveSheetSelection(toDayId: String, message: String) = sheetSelectionStore.moveTo(toDayId, message)
+
+    fun deleteSheetSelection(message: String) = sheetSelectionStore.delete(message)
+
+    fun pasteSheetLift(toDayId: String, message: String) {
+        val clip = _sheetClipboard.value ?: return
+        val days = _uiState.value.days
+        val target = days.firstOrNull { day -> day.id == toDayId } ?: return
+        val targetEdit = target.editState ?: return
+        if (target.isRest) return
+        var pastedWorkoutLiftId = clip.lift.workoutLiftId
+        val next =
+            when (clip.kind) {
+                ProgramSheetClipboardKind.Cut ->
+                    moveProgramSheetLift(
+                        days = days,
+                        fromDayId = clip.fromDayId,
+                        toDayId = toDayId,
+                        workoutLiftId = clip.lift.workoutLiftId,
+                        targetPosition = targetEdit.lifts.size,
+                        detachedLift = clip.lift,
+                    )
+                ProgramSheetClipboardKind.Copy ->
+                    copyProgramSheetLift(
+                        days = days,
+                        fromDayId = clip.fromDayId,
+                        toDayId = toDayId,
+                        workoutLiftId = clip.lift.workoutLiftId,
+                        targetPosition = targetEdit.lifts.size,
+                        sourceLift = clip.lift,
+                        newWorkoutLiftId = {
+                            newWorkoutLiftId().also { generated -> pastedWorkoutLiftId = generated }
+                        },
+                    )
+            }
+        if (next === days) return
+        _sheetClipboard.value = null
+        sheetLiftUndo = sheetPasteUndo(clip, toDayId, pastedWorkoutLiftId)
+        publishSheetUndo(publishSheetUndoMessage(currentEpoch = _sheetUndoEpoch.value, message = message))
+        editor.applyEditorDays(next)
+    }
+
+    /**
+     * Sheet delete. Records the lift and its index for Undo, then the existing remove.
+     * Tabbed delete does not call this, so it does not gain a snackbar.
+     */
+    fun removeSheetLift(dayId: String, workoutLiftId: String, message: String) {
+        val day = _uiState.value.days.firstOrNull { candidate -> candidate.id == dayId } ?: return
+        val lifts = day.editState?.lifts ?: return
+        val index = lifts.indexOfFirst { lift -> lift.workoutLiftId == workoutLiftId }
+        if (day.isRest || index < 0) return
+        sheetLiftUndo = sheetDeleteUndo(dayId, lifts[index], index, lifts)
+        publishSheetUndo(publishSheetUndoMessage(currentEpoch = _sheetUndoEpoch.value, message = message))
+        editor.selectDay(dayId)
+        removeSelectedLift(workoutLiftId)
+    }
+
+    fun undoSheetLiftChange() {
+        val decision =
+            consumeSheetUndo(
+                isSaving = _uiState.value.isSaving,
+                undo = sheetLiftUndo,
+                days = _uiState.value.days,
+            )
+        if (!decision.consumed) return
+        sheetLiftUndo = null
+        _userMessage.value = null
+        val restored = decision.days
+        if (restored != null) {
+            editor.applyEditorDays(restored)
+        }
+        val clip = _sheetClipboard.value ?: return
+        val cutLiftReturned =
+            clip.kind == ProgramSheetClipboardKind.Cut &&
+                _uiState.value.days.any { day ->
+                    day.editState?.lifts?.any { lift -> lift.workoutLiftId == clip.lift.workoutLiftId } == true
+                }
+        if (cutLiftReturned) {
+            _sheetClipboard.value = null
+        }
+    }
+
+    fun dismissSheetLiftUndo() {
+        sheetLiftUndo = null
+        _userMessage.value = null
+    }
+
+    /**
+     * Puts a pending cut back into the current day. Returns false when that day is
+     * gone so the clipboard stays and the lift can still be pasted.
+     */
+    private fun returnPendingCut(): Boolean {
+        val clip = _sheetClipboard.value ?: return true
+        if (clip.kind != ProgramSheetClipboardKind.Cut) {
+            _sheetClipboard.value = null
+            return true
+        }
+        val days = _uiState.value.days
+        val next =
+            returnCutLiftToCurrentDay(
+                days = days,
+                fromDayId = clip.fromDayId,
+                lift = clip.lift,
+                originalIndex = clip.originalIndex,
+                sourceLiftsBefore = clip.sourceLiftsBefore,
+            )
+        if (next === days) return false
+        _sheetClipboard.value = null
+        sheetLiftUndo =
+            rebaseSheetUndoForReturnedCut(
+                undo = sheetLiftUndo,
+                fromDayId = clip.fromDayId,
+                lift = clip.lift,
+                originalIndex = clip.originalIndex,
+                sourceLiftsBefore = clip.sourceLiftsBefore,
+            )
+        editor.applyEditorDays(next)
+        return true
+    }
+
+    private fun publishSheetUndo(published: SheetUndoPublish) {
+        // Message first, then the epoch, so the snackbar effect reads this text.
+        _userMessage.value = published.message
+        _sheetUndoEpoch.value = published.epoch
+    }
+
     fun linkSupersetWithPrevious(workoutLiftId: String) {
         editor.updateSelectedWorkout { loaded ->
             EditWorkoutLiftMutations.linkSuperset(
@@ -344,14 +602,17 @@ class CreateProgramViewModel @Inject constructor(
     fun startReorderLifts(onNavigate: (workoutId: String) -> Unit) =
         editor.startReorderLifts(onNavigate)
 
-    fun saveToLibrary(onDone: () -> Unit) =
+    fun saveToLibrary(onDone: () -> Unit) {
         editor.persist(CreateProgramPersistMode.SaveToLibrary, onDone)
+    }
 
-    fun saveChanges(onDone: () -> Unit) =
+    fun saveChanges(onDone: () -> Unit) {
         editor.persist(CreateProgramPersistMode.SavePreservingActive, onDone)
+    }
 
-    fun activate(onDone: () -> Unit) =
+    fun activate(onDone: () -> Unit) {
         editor.persist(CreateProgramPersistMode.Activate, onDone)
+    }
 
     fun requestDiscard(): Boolean = editor.requestDiscard()
 

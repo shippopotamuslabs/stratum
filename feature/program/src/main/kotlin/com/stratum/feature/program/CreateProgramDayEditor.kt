@@ -28,16 +28,29 @@ internal object CreateProgramDayEditor {
         )
     }
 
-    fun removeSelectedDay(state: CreateProgramUiState): CreateProgramUiState {
-        val selectedId = state.selectedDayId ?: return state
-        if (state.days.size <= 1) return state
+    fun removeSelectedDay(state: CreateProgramUiState): CreateProgramUiState =
+        removeDay(state, state.selectedDayId)
+
+    /**
+     * Removes [dayId] even when it is no longer [CreateProgramUiState.selectedDayId].
+     * Selecting that day and removing it still lands on the first remaining day.
+     */
+    fun removeDay(state: CreateProgramUiState, dayId: String?): CreateProgramUiState {
+        if (dayId == null || state.days.size <= 1) return state
+        if (state.days.none { day -> day.id == dayId }) return state
         val remaining =
             state.days
-                .filterNot { day -> day.id == selectedId }
+                .filterNot { day -> day.id == dayId }
                 .mapIndexed { index, day -> day.copy(position = index) }
+        val nextSelectedId =
+            if (state.selectedDayId == dayId) {
+                remaining.firstOrNull()?.id
+            } else {
+                state.selectedDayId
+            }
         return state.copy(
             days = remaining,
-            selectedDayId = remaining.firstOrNull()?.id,
+            selectedDayId = nextSelectedId,
             isDirty = true,
         )
     }
@@ -96,14 +109,7 @@ internal object CreateProgramDayEditor {
     ): CreateProgramUiState {
         val selectedId = state.selectedDayId ?: return state
         return state.copy(
-            days =
-                state.days.map { day ->
-                    if (day.id != selectedId || day.editState == null) {
-                        day
-                    } else {
-                        day.copy(editState = transform(day.editState), isRest = false)
-                    }
-                },
+            days = updateProgramDay(state.days, selectedId, transform),
             isDirty = true,
         )
     }
