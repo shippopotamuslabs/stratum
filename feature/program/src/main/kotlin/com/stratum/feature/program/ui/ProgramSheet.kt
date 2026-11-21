@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -961,12 +962,24 @@ private fun ProgramSheetWorkoutMenu(
 }
 
 @Composable
-internal fun Modifier.sheetHairline(): Modifier {
-    val color = StratumThemeAccessor.colors.borderSubtle
+internal fun Modifier.sheetHairline(): Modifier =
+    sheetRule(color = StratumThemeAccessor.colors.borderSubtle, top = false)
+
+/**
+ * One rule line along the [top] edge, or the bottom edge when [top] is false.
+ * The single drawBehind line implementation for sheet surfaces: hairlines
+ * are the bottom-edge subtle case, the volume pivot's totals rule is the
+ * top-edge strong case.
+ */
+@Composable
+internal fun Modifier.sheetRule(
+    color: Color,
+    top: Boolean,
+): Modifier {
     val width = StratumThemeAccessor.shapes.borderWidth
     return drawBehind {
         val stroke = width.toPx()
-        val y = size.height - stroke / 2f
+        val y = if (top) stroke / 2f else size.height - stroke / 2f
         drawLine(
             color = color,
             start = Offset(0f, y),

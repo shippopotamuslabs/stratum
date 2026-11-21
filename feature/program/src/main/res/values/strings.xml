@@ -115,6 +115,7 @@
     <string name="create_program_sheet_column_reps">Reps</string>
     <string name="create_program_sheet_workout_menu">Workout options</string>
     <string name="create_program_sheet_volume_by_workout">By workout</string>
+    <string name="create_program_sheet_volume_total">Total</string>
     <string name="create_program_sheet_previous_lift">Previous lift</string>
     <string name="create_program_sheet_next_lift">Next lift</string>
     <string name="create_program_sheet_workout_meta">%1$s · %2$s</string>
