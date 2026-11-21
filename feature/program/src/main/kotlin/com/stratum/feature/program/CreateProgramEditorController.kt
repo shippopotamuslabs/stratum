@@ -52,6 +52,12 @@ internal class CreateProgramEditorController(
     var compoundByLiftId: Map<String, Boolean> = emptyMap()
 
     /**
+     * Runs at the start of [persistNow], before the draft is read.
+     * The sheet commits an open bulk rep band here, while select mode is still on.
+     */
+    var onPersistProceeding: () -> Unit = {}
+
+    /**
      * Day id captured before [CreateProgramActiveSessionGuard.inProgressSessionOrNull] suspends.
      * Confirm-discard removes this id, not whichever day is selected after the wait.
      */
@@ -411,6 +417,7 @@ internal class CreateProgramEditorController(
     }
 
     private suspend fun persistNow(mode: CreateProgramPersistMode, onDone: () -> Unit) {
+        onPersistProceeding()
         val current = state.value
         val writtenDays = current.days
         state.update { it.copy(isSaving = true, saveErrorMessage = null) }

@@ -134,6 +134,49 @@ internal object EditWorkoutLiftMutations {
             isDirty = true,
         )
 
+    fun setRirForAllSetsOnLift(
+        loaded: EditWorkoutUiState.Loaded,
+        workoutLiftId: String,
+        rir: Int,
+    ): EditWorkoutUiState.Loaded =
+        loaded.copy(
+            lifts =
+                loaded.lifts.map { lift ->
+                    if (lift.workoutLiftId != workoutLiftId) {
+                        lift
+                    } else {
+                        lift.copy(sets = lift.sets.map { set -> set.copy(rirGoal = rir) })
+                    }
+                },
+            isDirty = true,
+        )
+
+    fun applyRepBandToLift(
+        loaded: EditWorkoutUiState.Loaded,
+        workoutLiftId: String,
+        repMin: Int,
+        repMax: Int,
+    ): EditWorkoutUiState.Loaded =
+        loaded.copy(
+            lifts =
+                loaded.lifts.map { lift ->
+                    if (lift.workoutLiftId != workoutLiftId) {
+                        lift
+                    } else {
+                        lift.copy(
+                            sets =
+                                applyUserRepBand(
+                                    sets = lift.sets,
+                                    scheme = lift.progressionScheme,
+                                    repMin = repMin,
+                                    repMax = repMax,
+                                ),
+                        )
+                    }
+                },
+            isDirty = true,
+        )
+
     fun setRestSecondsForAllSetsOnLift(
         loaded: EditWorkoutUiState.Loaded,
         workoutLiftId: String,

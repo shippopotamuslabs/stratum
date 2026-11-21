@@ -294,6 +294,7 @@ fun LiftActionsBottomSheet(
     onEditEquipment: (() -> Unit)? = null,
     onCut: (() -> Unit)? = null,
     onCopy: (() -> Unit)? = null,
+    onSelect: (() -> Unit)? = null,
 ) {
     StratumBottomSheet(
         onDismissRequest = onDismiss,
@@ -310,6 +311,7 @@ fun LiftActionsBottomSheet(
             onEditEquipment = onEditEquipment,
             onCut = onCut,
             onCopy = onCopy,
+            onSelect = onSelect,
         )
     }
 }
@@ -326,6 +328,7 @@ fun LiftActionsSheetContent(
     onEditEquipment: (() -> Unit)? = null,
     onCut: (() -> Unit)? = null,
     onCopy: (() -> Unit)? = null,
+    onSelect: (() -> Unit)? = null,
 ) {
     val groups =
         visibleLiftActionGroups(
@@ -335,6 +338,7 @@ fun LiftActionsSheetContent(
             showPastNotes = onViewPastSessionNotes != null,
             showCut = onCut != null,
             showCopy = onCopy != null,
+            showSelect = onSelect != null,
         )
     groups.forEachIndexed { index, group ->
         if (index > 0) {
@@ -384,6 +388,12 @@ fun LiftActionsSheetContent(
                         leadingIconRes = CoreUiR.drawable.ic_history,
                         onClick = onViewPastSessionNotes ?: {},
                     )
+                LiftActionItem.Select ->
+                    LiftActionRow(
+                        text = stringResource(CoreUiR.string.edit_workout_select_lift),
+                        leadingIconRes = CoreUiR.drawable.ic_check,
+                        onClick = onSelect ?: {},
+                    )
                 LiftActionItem.Cut ->
                     LiftActionRow(
                         text = stringResource(CoreUiR.string.edit_workout_cut_lift),
@@ -417,6 +427,7 @@ internal enum class LiftActionItem {
     Superset,
     ManageNotes,
     PastNotes,
+    Select,
     Cut,
     Copy,
     Remove,
@@ -437,6 +448,7 @@ internal fun visibleLiftActionGroups(
     showPastNotes: Boolean,
     showCut: Boolean = false,
     showCopy: Boolean = false,
+    showSelect: Boolean = false,
 ): List<List<LiftActionItem>> {
     val primary =
         buildList {
@@ -464,6 +476,7 @@ internal fun visibleLiftActionGroups(
         }
     val transfer =
         buildList {
+            if (showSelect) add(LiftActionItem.Select)
             if (showCut) add(LiftActionItem.Cut)
             if (showCopy) add(LiftActionItem.Copy)
         }

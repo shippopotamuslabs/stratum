@@ -382,6 +382,11 @@ class EditWorkoutDockHostState(
         tryCommitPendingOrBlock()
     }
 
+    /** Drops an open rep or rest draft without applying it. */
+    fun discardWithoutCommit() {
+        close()
+    }
+
     /**
      * Best-effort leave when the host is disposed (e.g. Create Program unmounts the embed).
      * Valid rep drafts are committed; invalid drafts cannot show UI so they are dropped and

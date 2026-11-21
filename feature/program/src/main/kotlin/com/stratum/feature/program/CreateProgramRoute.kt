@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -12,6 +13,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.feature.program.ui.CreateProgramScreen
 import com.stratum.feature.program.ui.CreateProgramScreenCallbacks
 import com.stratum.feature.program.ui.LocalProgramSheetClipboard
+import com.stratum.feature.program.ui.LocalProgramSheetSelection
 
 @Composable
 fun CreateProgramRoute(
@@ -29,6 +31,11 @@ fun CreateProgramRoute(
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val sheetUndoEpoch by viewModel.sheetUndoEpoch.collectAsStateWithLifecycle()
     val sheetClipboard by viewModel.sheetClipboard.collectAsStateWithLifecycle()
+    val sheetSelection by viewModel.sheetSelection.collectAsStateWithLifecycle()
+
+    DisposableEffect(viewModel) {
+        onDispose { viewModel.clearSheetSelection() }
+    }
 
     LaunchedEffect(startInScratch, finishOnboarding, programId) {
         viewModel.configureEntry(
@@ -52,7 +59,10 @@ fun CreateProgramRoute(
         }
     }
 
-    CompositionLocalProvider(LocalProgramSheetClipboard provides sheetClipboard) {
+    CompositionLocalProvider(
+        LocalProgramSheetClipboard provides sheetClipboard,
+        LocalProgramSheetSelection provides sheetSelection,
+    ) {
         CreateProgramScreen(
         state = state,
         userMessage = userMessage,
@@ -101,6 +111,15 @@ fun CreateProgramRoute(
                 onRemoveSheetLift = viewModel::removeSheetLift,
                 onUndoSheetLift = viewModel::undoSheetLiftChange,
                 onDismissSheetUndo = viewModel::dismissSheetLiftUndo,
+                onBeginSheetSelect = viewModel::beginSheetSelect,
+                onToggleSheetLift = viewModel::toggleSheetLift,
+                onCancelSheetSelection = viewModel::clearSheetSelection,
+                onAddSetToSheetSelection = viewModel::addSetToSheetSelection,
+                onRemoveSetFromSheetSelection = viewModel::removeSetFromSheetSelection,
+                onSetRirOnSheetSelection = viewModel::setRirOnSheetSelection,
+                onSetRepBandOnSheetSelection = viewModel::setRepBandOnSheetSelection,
+                onMoveSheetSelection = viewModel::moveSheetSelection,
+                onDeleteSheetSelection = viewModel::deleteSheetSelection,
                 onLinkSupersetWithPrevious = viewModel::linkSupersetWithPrevious,
                 onLinkSupersetWithNext = viewModel::linkSupersetWithNext,
                 onRemoveFromSuperset = viewModel::removeFromSuperset,
@@ -117,6 +136,7 @@ fun CreateProgramRoute(
                 onSaveToLibrary = { viewModel.saveToLibrary(onFinished) },
                 onSaveChanges = { viewModel.saveChanges(onFinished) },
                 onActivate = { viewModel.activate(onFinished) },
+                onRegisterOpenBulkRepCommit = viewModel::setOpenBulkRepCommit,
                 onConfirmDiscard = {
                     viewModel.dismissDiscard()
                     onBackClick()

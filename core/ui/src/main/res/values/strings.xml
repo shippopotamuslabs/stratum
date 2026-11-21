@@ -168,6 +168,7 @@
     <string name="edit_workout_superset_chip">Superset</string>
     <string name="edit_workout_swap_lift">Swap</string>
     <string name="edit_workout_edit_equipment">Edit equipment</string>
+    <string name="edit_workout_select_lift">Select</string>
     <string name="edit_workout_cut_lift">Cut</string>
     <string name="edit_workout_copy_lift">Copy</string>
     <string name="edit_workout_remove_lift">Remove</string>

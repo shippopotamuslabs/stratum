@@ -1,0 +1,555 @@
+package com.stratum.feature.program
+
+import com.stratum.feature.program.ui.EditLiftState
+import com.stratum.feature.program.ui.EditSetState
+import com.stratum.feature.program.ui.EditWorkoutUiState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+/** Rep-pad set id for a bulk band. Not a real set. The sheet dock opens on this id. */
+internal const val PROGRAM_SHEET_BULK_REP_SET_ID = "program-sheet-bulk-rep"
+
+/** Why an open rep pad is being asked to leave or stay. */
+internal enum class ProgramSheetPadMoment {
+    EnterSelect,
+    LeaveSelect,
+    SaveProceeding,
+    HostDisposed,
+}
+
+/** What the sheet should do with the pad that is open at [ProgramSheetPadMoment]. */
+internal enum class ProgramSheetPadAction {
+    CommitIfValidThenClose,
+    DiscardWithoutCommit,
+    None,
+}
+
+/**
+ * One selected sheet lift. Order in [ProgramSheetSelection.ordered] is selection order.
+ * Not stored on [CreateProgramUiState] and not read by [toDomainProgram].
+ */
+internal data class ProgramSheetLiftRef(
+    val dayId: String,
+    val workoutLiftId: String,
+)
+
+/**
+ * [active] is separate from [ordered] so select mode can be on with nothing checked.
+ * An empty list is also the idle state.
+ */
+internal data class ProgramSheetSelection(
+    val active: Boolean = false,
+    val ordered: List<ProgramSheetLiftRef> = emptyList(),
+)
+
+internal data class ProgramSheetBulkEdit(
+    val days: List<CreateProgramDayUi>,
+    val undo: ProgramSheetUndo,
+    val selection: List<ProgramSheetLiftRef>,
+)
+
+/** Takes the sets a bulk add appended back off the lift, on its live set list. */
+internal data class RemoveBulkAddedSets(
+    val workoutLiftId: String,
+    val setIds: Set<String>,
+) : SheetLiftUndoStep {
+    override fun applyTo(lifts: List<EditLiftState>): List<EditLiftState> =
+        lifts.map { lift ->
+            if (lift.workoutLiftId != workoutLiftId) {
+                lift
+            } else {
+                lift.copy(sets = renumberSets(lift.sets.filterNot { set -> set.setId in setIds }))
+            }
+        }
+}
+
+/** Puts a set a bulk remove took off back into the lift at its old position. */
+internal data class InsertBulkRemovedSet(
+    val workoutLiftId: String,
+    val set: EditSetState,
+    val index: Int,
+) : SheetLiftUndoStep {
+    override fun applyTo(lifts: List<EditLiftState>): List<EditLiftState> =
+        lifts.map { lift ->
+            if (lift.workoutLiftId != workoutLiftId || lift.sets.any { item -> item.setId == set.setId }) {
+                lift
+            } else {
+                val sets = lift.sets.toMutableList().apply { add(index.coerceIn(0, size), set) }
+                lift.copy(sets = renumberSets(sets))
+            }
+        }
+}
+
+/**
+ * Puts back the rep band, RIR, and top-set flags a bulk write overwrote, on the
+ * live sets with the same ids. Sets added after the write keep their values.
+ */
+internal data class RestoreBulkSetValues(
+    val workoutLiftId: String,
+    val priorSets: List<EditSetState>,
+) : SheetLiftUndoStep {
+    override fun applyTo(lifts: List<EditLiftState>): List<EditLiftState> =
+        lifts.map { lift ->
+            if (lift.workoutLiftId != workoutLiftId) {
+                lift
+            } else {
+                val priorById = priorSets.associateBy { set -> set.setId }
+                lift.copy(
+                    sets =
+                        lift.sets.map { set ->
+                            val prior = priorById[set.setId] ?: return@map set
+                            set.copy(
+                                repMin = prior.repMin,
+                                repMax = prior.repMax,
+                                rirGoal = prior.rirGoal,
+                                isTopSet = prior.isTopSet,
+                            )
+                        },
+                )
+            }
+        }
+}
+
+/** Toggling off removes [target] and leaves the rest in order. Toggling on appends. */
+internal fun toggleProgramSheetSelection(
+    ordered: List<ProgramSheetLiftRef>,
+    target: ProgramSheetLiftRef,
+): List<ProgramSheetLiftRef> {
+    val index = ordered.indexOf(target)
+    return if (index < 0) ordered + target else ordered.filterIndexed { position, _ -> position != index }
+}
+
+/** Drops refs whose lift is no longer on that day. Same list instance when nothing drops. */
+internal fun pruneProgramSheetSelection(
+    ordered: List<ProgramSheetLiftRef>,
+    days: List<CreateProgramDayUi>,
+): List<ProgramSheetLiftRef> {
+    if (ordered.isEmpty()) return ordered
+    val kept = ordered.filter { ref -> findProgramSheetLift(days, ref) != null }
+    return if (kept.size == ordered.size) ordered else kept
+}
+
+internal fun findProgramSheetLift(
+    days: List<CreateProgramDayUi>,
+    ref: ProgramSheetLiftRef,
+): EditLiftState? =
+    days
+        .firstOrNull { day -> day.id == ref.dayId }
+        ?.editState
+        ?.lifts
+        ?.firstOrNull { lift -> lift.workoutLiftId == ref.workoutLiftId }
+
+/**
+ * Adds one set to each selected lift via [EditWorkoutLiftMutations.addSet].
+ * A missing id is skipped. No selected lift returns [days].
+ */
+internal fun addSetToSelectedSheetLifts(
+    days: List<CreateProgramDayUi>,
+    selection: List<ProgramSheetLiftRef>,
+): ProgramSheetBulkEdit =
+    bulkOverSelection(
+        days = days,
+        selection = selection,
+        applies = { _ -> true },
+        buildUndo = { before, next, present ->
+            bulkStepsByDay(present) { ref ->
+                val beforeIds =
+                    findProgramSheetLift(before, ref)?.sets?.map { set -> set.setId }?.toSet().orEmpty()
+                val added =
+                    findProgramSheetLift(next, ref)?.sets.orEmpty()
+                        .filter { set -> set.setId !in beforeIds }
+                        .map { set -> set.setId }
+                RemoveBulkAddedSets(workoutLiftId = ref.workoutLiftId, setIds = added.toSet())
+            }
+        },
+        apply = { current, ref ->
+            updateProgramDay(current, ref.dayId) { loaded ->
+                EditWorkoutLiftMutations.addSet(loaded, ref.workoutLiftId)
+            }
+        },
+        selectionAfter = { present, _ -> present },
+    )
+
+/**
+ * Removes the last set by [EditSetState.setNumber] via [EditWorkoutLiftMutations.removeSet].
+ * A 1-set lift is left as it is, including its set id. No removable set returns [days].
+ */
+internal fun removeSetFromSelectedSheetLifts(
+    days: List<CreateProgramDayUi>,
+    selection: List<ProgramSheetLiftRef>,
+): ProgramSheetBulkEdit =
+    bulkOverSelection(
+        days = days,
+        selection = selection,
+        applies = { lift -> lift.sets.size > 1 },
+        buildUndo = { before, _, present ->
+            bulkStepsByDay(present) { ref ->
+                val lift = findProgramSheetLift(before, ref)!!
+                val removed = lastSheetSet(lift)
+                InsertBulkRemovedSet(
+                    workoutLiftId = ref.workoutLiftId,
+                    set = removed,
+                    index = lift.sets.indexOfFirst { set -> set.setId == removed.setId },
+                )
+            }
+        },
+        apply = { current, ref ->
+            updateProgramDay(current, ref.dayId) { loaded ->
+                val lift = loaded.lifts.first { item -> item.workoutLiftId == ref.workoutLiftId }
+                EditWorkoutLiftMutations.removeSet(loaded, lastSheetSet(lift).setId)
+            }
+        },
+        selectionAfter = { _, next -> pruneProgramSheetSelection(selection, next) },
+    )
+
+/**
+ * Writes [rir] onto every set of each selected lift. Rep ranges stay. Backoff sets are included.
+ * Returns [days] when every selected set already has [rir].
+ */
+internal fun setRirOnSelectedSheetLifts(
+    days: List<CreateProgramDayUi>,
+    selection: List<ProgramSheetLiftRef>,
+    rir: Int,
+): ProgramSheetBulkEdit =
+    bulkOverSelection(
+        days = days,
+        selection = selection,
+        applies = { lift -> lift.sets.any { set -> set.rirGoal != rir } },
+        buildUndo = { before, _, present ->
+            bulkStepsByDay(present) { ref ->
+                RestoreBulkSetValues(
+                    workoutLiftId = ref.workoutLiftId,
+                    priorSets = findProgramSheetLift(before, ref)?.sets.orEmpty(),
+                )
+            }
+        },
+        apply = { current, ref ->
+            updateProgramDay(current, ref.dayId) { loaded ->
+                EditWorkoutLiftMutations.setRirForAllSetsOnLift(loaded, ref.workoutLiftId, rir)
+            }
+        },
+        selectionAfter = { _, next -> pruneProgramSheetSelection(selection, next) },
+    )
+
+/**
+ * One band through [applyUserRepBand] per selected lift. Same helper as edit-workout setReps.
+ * Returns [days] when that helper would leave every selected lift unchanged.
+ */
+internal fun setRepBandOnSelectedSheetLifts(
+    days: List<CreateProgramDayUi>,
+    selection: List<ProgramSheetLiftRef>,
+    repMin: Int,
+    repMax: Int,
+): ProgramSheetBulkEdit =
+    bulkOverSelection(
+        days = days,
+        selection = selection,
+        applies = { lift ->
+            applyUserRepBand(
+                sets = lift.sets,
+                scheme = lift.progressionScheme,
+                repMin = repMin,
+                repMax = repMax,
+            ) != lift.sets
+        },
+        buildUndo = { before, _, present ->
+            bulkStepsByDay(present) { ref ->
+                RestoreBulkSetValues(
+                    workoutLiftId = ref.workoutLiftId,
+                    priorSets = findProgramSheetLift(before, ref)?.sets.orEmpty(),
+                )
+            }
+        },
+        apply = { current, ref ->
+            updateProgramDay(current, ref.dayId) { loaded ->
+                EditWorkoutLiftMutations.applyRepBandToLift(loaded, ref.workoutLiftId, repMin, repMax)
+            }
+        },
+        selectionAfter = { _, next -> pruneProgramSheetSelection(selection, next) },
+    )
+
+/**
+ * Appends each selected lift, in selection order, at the end of [toDayId].
+ * A rest day, a missing destination, or no selected lift returns [days].
+ */
+internal fun moveSelectedSheetLifts(
+    days: List<CreateProgramDayUi>,
+    selection: List<ProgramSheetLiftRef>,
+    toDayId: String,
+): ProgramSheetBulkEdit {
+    val destination = days.firstOrNull { day -> day.id == toDayId }
+    if (destination == null || destination.isRest || destination.editState == null) {
+        return ProgramSheetBulkEdit(days, ProgramSheetUndo(emptyMap()), pruneProgramSheetSelection(selection, days))
+    }
+    return bulkOverSelection(
+        days = days,
+        selection = selection,
+        applies = { _ -> true },
+        buildUndo = { before, _, present ->
+            val removes =
+                mapOf(
+                    toDayId to
+                        present.map { ref -> SheetLiftUndoStep.RemoveLift(ref.workoutLiftId) },
+                )
+            val inserts =
+                bulkStepsByDay(present) { ref ->
+                    val sourceLifts =
+                        before.firstOrNull { day -> day.id == ref.dayId }?.editState?.lifts.orEmpty()
+                    val lift = findProgramSheetLift(before, ref)!!
+                    SheetLiftUndoStep.InsertLift(
+                        lift = lift,
+                        originalIndex =
+                            sourceLifts.indexOfFirst { item -> item.workoutLiftId == ref.workoutLiftId },
+                        sourceLiftsBefore = sourceLifts,
+                    )
+                }
+            ProgramSheetUndo(mergeStepMaps(removes, inserts.stepsByDayId))
+        },
+        apply = { current, ref ->
+            val targetSize = current.firstOrNull { day -> day.id == toDayId }?.editState?.lifts?.size
+            if (targetSize == null) {
+                current
+            } else {
+                moveProgramSheetLift(
+                    days = current,
+                    fromDayId = ref.dayId,
+                    toDayId = toDayId,
+                    workoutLiftId = ref.workoutLiftId,
+                    targetPosition = targetSize,
+                )
+            }
+        },
+        selectionAfter = { present, _ ->
+            present.map { ref -> ProgramSheetLiftRef(dayId = toDayId, workoutLiftId = ref.workoutLiftId) }
+        },
+    )
+}
+
+/**
+ * Bulk band commits only for a save that is about to persist.
+ * Entering select still commits a normal pad, and drops a leftover bulk pad.
+ * Leaving select or disposing the sheet drops a bulk pad so the next select cannot apply it.
+ */
+internal fun programSheetPadAction(
+    moment: ProgramSheetPadMoment,
+    openSetId: String?,
+): ProgramSheetPadAction {
+    val bulkOpen = openSetId == PROGRAM_SHEET_BULK_REP_SET_ID
+    return when (moment) {
+        ProgramSheetPadMoment.EnterSelect ->
+            when {
+                openSetId == null -> ProgramSheetPadAction.None
+                bulkOpen -> ProgramSheetPadAction.DiscardWithoutCommit
+                else -> ProgramSheetPadAction.CommitIfValidThenClose
+            }
+        ProgramSheetPadMoment.LeaveSelect ->
+            if (bulkOpen) ProgramSheetPadAction.DiscardWithoutCommit else ProgramSheetPadAction.None
+        ProgramSheetPadMoment.SaveProceeding ->
+            if (bulkOpen) ProgramSheetPadAction.CommitIfValidThenClose else ProgramSheetPadAction.None
+        ProgramSheetPadMoment.HostDisposed ->
+            when {
+                openSetId == null -> ProgramSheetPadAction.None
+                bulkOpen -> ProgramSheetPadAction.DiscardWithoutCommit
+                else -> ProgramSheetPadAction.CommitIfValidThenClose
+            }
+    }
+}
+
+/** Removes each selected lift with [removeLiftAndCleanupSupersets]. No selected lift returns [days]. */
+internal fun deleteSelectedSheetLifts(
+    days: List<CreateProgramDayUi>,
+    selection: List<ProgramSheetLiftRef>,
+): ProgramSheetBulkEdit =
+    bulkOverSelection(
+        days = days,
+        selection = selection,
+        applies = { _ -> true },
+        buildUndo = { before, _, present ->
+            bulkStepsByDay(present) { ref ->
+                val dayLifts =
+                    before.firstOrNull { day -> day.id == ref.dayId }?.editState?.lifts.orEmpty()
+                val lift = findProgramSheetLift(before, ref)!!
+                SheetLiftUndoStep.InsertLift(
+                    lift = lift,
+                    originalIndex =
+                        dayLifts.indexOfFirst { item -> item.workoutLiftId == ref.workoutLiftId },
+                    sourceLiftsBefore = dayLifts,
+                )
+            }
+        },
+        apply = { current, ref ->
+            updateProgramDay(current, ref.dayId) { loaded ->
+                EditWorkoutLiftMutations.removeLift(loaded, ref.workoutLiftId)
+            }
+        },
+        selectionAfter = { _, next -> pruneProgramSheetSelection(selection, next) },
+    )
+
+/**
+ * Sheet multi-select. Not on [CreateProgramUiState].
+ * Entering select mode puts a pending cut back before the mode turns on.
+ */
+internal class ProgramSheetSelectionStore(
+    private val scope: CoroutineScope,
+    private val uiState: StateFlow<CreateProgramUiState>,
+    private val applyDays: (List<CreateProgramDayUi>) -> Unit,
+    private val publishUndo: (message: String, undo: ProgramSheetUndo) -> Unit,
+    private val returnPendingCut: () -> Boolean,
+) {
+    private val _selection = MutableStateFlow(ProgramSheetSelection())
+    val selection: StateFlow<ProgramSheetSelection> = _selection.asStateFlow()
+
+    init {
+        scope.launch {
+            uiState
+                .map { state -> state.days }
+                .distinctUntilChanged()
+                .collect { days ->
+                    _selection.update { current ->
+                        if (!current.active) {
+                            current
+                        } else {
+                            val pruned = pruneProgramSheetSelection(current.ordered, days)
+                            if (pruned === current.ordered) current else current.copy(ordered = pruned)
+                        }
+                    }
+                }
+        }
+    }
+
+    fun begin(initial: ProgramSheetLiftRef?) {
+        if (!returnPendingCut()) return
+        val ordered =
+            if (initial == null) {
+                emptyList()
+            } else {
+                pruneProgramSheetSelection(listOf(initial), uiState.value.days)
+            }
+        _selection.value = ProgramSheetSelection(active = true, ordered = ordered)
+    }
+
+    fun toggle(target: ProgramSheetLiftRef) {
+        _selection.update { current ->
+            if (!current.active) {
+                current
+            } else {
+                current.copy(ordered = toggleProgramSheetSelection(current.ordered, target))
+            }
+        }
+    }
+
+    fun clear() {
+        if (!_selection.value.active) return
+        _selection.value = ProgramSheetSelection()
+    }
+
+    fun addSet(message: String) = edit(message, ::addSetToSelectedSheetLifts)
+
+    fun removeSet(message: String) = edit(message, ::removeSetFromSelectedSheetLifts)
+
+    fun setRir(rir: Int, message: String) =
+        edit(message) { days, ordered -> setRirOnSelectedSheetLifts(days, ordered, rir) }
+
+    fun setRepBand(repMin: Int, repMax: Int, message: String) =
+        edit(message) { days, ordered ->
+            setRepBandOnSelectedSheetLifts(days, ordered, repMin, repMax)
+        }
+
+    fun moveTo(toDayId: String, message: String) =
+        edit(message) { days, ordered -> moveSelectedSheetLifts(days, ordered, toDayId) }
+
+    fun delete(message: String) = edit(message, ::deleteSelectedSheetLifts)
+
+    private fun edit(
+        message: String,
+        transform: (List<CreateProgramDayUi>, List<ProgramSheetLiftRef>) -> ProgramSheetBulkEdit,
+    ) {
+        val current = _selection.value
+        if (!current.active) return
+        val days = uiState.value.days
+        val result = transform(days, current.ordered)
+        if (result.days !== days) {
+            publishUndo(message, result.undo)
+            applyDays(result.days)
+        }
+        // After the day list, so a days collector cannot drop lifts that just moved.
+        val live = _selection.value
+        if (live.active && live.ordered != result.selection) {
+            _selection.value = live.copy(ordered = result.selection)
+        }
+    }
+}
+
+private fun lastSheetSet(lift: EditLiftState): EditSetState =
+    lift.sets.reduce { acc, set -> if (set.setNumber >= acc.setNumber) set else acc }
+
+/**
+ * Groups one undo step per ref by the ref's day. A day whose steps are all
+ * inserts gets them in ascending index order, so putting several lifts back
+ * lands each one at its counted position.
+ */
+private fun bulkStepsByDay(
+    present: List<ProgramSheetLiftRef>,
+    step: (ProgramSheetLiftRef) -> SheetLiftUndoStep,
+): ProgramSheetUndo {
+    val grouped =
+        present
+            .groupBy { ref -> ref.dayId }
+            .mapValues { (_, refs) ->
+                val steps = refs.map(step)
+                if (steps.all { item -> item is SheetLiftUndoStep.InsertLift }) {
+                    steps.sortedBy { item -> (item as SheetLiftUndoStep.InsertLift).originalIndex }
+                } else {
+                    steps
+                }
+            }
+    return ProgramSheetUndo(grouped)
+}
+
+/** Concatenates two step maps day by day, [first] steps before [second] steps. */
+private fun mergeStepMaps(
+    first: Map<String, List<SheetLiftUndoStep>>,
+    second: Map<String, List<SheetLiftUndoStep>>,
+): Map<String, List<SheetLiftUndoStep>> {
+    val merged = first.toMutableMap()
+    for ((dayId, steps) in second) {
+        merged[dayId] = merged[dayId].orEmpty() + steps
+    }
+    return merged
+}
+
+private fun bulkOverSelection(
+    days: List<CreateProgramDayUi>,
+    selection: List<ProgramSheetLiftRef>,
+    applies: (EditLiftState) -> Boolean,
+    buildUndo: (
+        before: List<CreateProgramDayUi>,
+        next: List<CreateProgramDayUi>,
+        present: List<ProgramSheetLiftRef>,
+    ) -> ProgramSheetUndo,
+    apply: (List<CreateProgramDayUi>, ProgramSheetLiftRef) -> List<CreateProgramDayUi>,
+    selectionAfter: (present: List<ProgramSheetLiftRef>, next: List<CreateProgramDayUi>) -> List<ProgramSheetLiftRef>,
+): ProgramSheetBulkEdit {
+    val present =
+        selection.filter { ref ->
+            findProgramSheetLift(days, ref)?.let(applies) == true
+        }
+    if (present.isEmpty()) {
+        return ProgramSheetBulkEdit(days, ProgramSheetUndo(emptyMap()), pruneProgramSheetSelection(selection, days))
+    }
+    val next = present.fold(days, apply)
+    if (next === days) {
+        return ProgramSheetBulkEdit(days, ProgramSheetUndo(emptyMap()), pruneProgramSheetSelection(selection, days))
+    }
+    return ProgramSheetBulkEdit(
+        days = next,
+        undo = buildUndo(days, next, present),
+        selection = selectionAfter(present, next),
+    )
+}

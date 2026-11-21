@@ -280,6 +280,7 @@ internal fun ProgramSheetLiftSheets(
     }
 
     val locatedActions = liftActionsLiftId?.let { liftId -> locateSheetLift(days, liftId) }
+    val sheetSelecting = LocalProgramSheetSelection.current.active
     if (locatedActions != null) {
         val removedMessage =
             stringResource(
@@ -318,20 +319,42 @@ internal fun ProgramSheetLiftSheets(
                 callbacks.onSelectDay(locatedActions.dayId)
                 callbacks.onReorderLifts()
             },
-            onCut = {
-                onDismissLiftActions()
-                callbacks.onCutSheetLift(
-                    locatedActions.dayId,
-                    locatedActions.lift.workoutLiftId,
-                )
-            },
-            onCopy = {
-                onDismissLiftActions()
-                callbacks.onCopySheetLift(
-                    locatedActions.dayId,
-                    locatedActions.lift.workoutLiftId,
-                )
-            },
+            onCut =
+                if (sheetSelecting) {
+                    null
+                } else {
+                    {
+                        onDismissLiftActions()
+                        callbacks.onCutSheetLift(
+                            locatedActions.dayId,
+                            locatedActions.lift.workoutLiftId,
+                        )
+                    }
+                },
+            onCopy =
+                if (sheetSelecting) {
+                    null
+                } else {
+                    {
+                        onDismissLiftActions()
+                        callbacks.onCopySheetLift(
+                            locatedActions.dayId,
+                            locatedActions.lift.workoutLiftId,
+                        )
+                    }
+                },
+            onSelect =
+                if (sheetSelecting) {
+                    null
+                } else {
+                    {
+                        onDismissLiftActions()
+                        callbacks.onBeginSheetSelect(
+                            locatedActions.dayId,
+                            locatedActions.lift.workoutLiftId,
+                        )
+                    }
+                },
             onDismiss = onDismissLiftActions,
         )
     }

@@ -72,4 +72,38 @@ class LiftActionGroupsTest {
             groups,
         )
     }
+
+    @Test
+    @DisplayName("Given select when grouped then it sits above cut and stays hidden otherwise")
+    fun selectSitsAboveCutAndStaysHiddenByDefault() {
+        val shown =
+            visibleLiftActionGroups(
+                showEditEquipment = false,
+                showRestTimes = false,
+                showManageNotes = false,
+                showPastNotes = false,
+                showCut = true,
+                showCopy = true,
+                showSelect = true,
+            )
+
+        assertEquals(
+            listOf(
+                listOf(LiftActionItem.Swap, LiftActionItem.Reorder),
+                listOf(LiftActionItem.Superset),
+                listOf(LiftActionItem.Select, LiftActionItem.Cut, LiftActionItem.Copy),
+                listOf(LiftActionItem.Remove),
+            ),
+            shown,
+        )
+        assertEquals(
+            false,
+            visibleLiftActionGroups(
+                showEditEquipment = false,
+                showRestTimes = false,
+                showManageNotes = false,
+                showPastNotes = false,
+            ).flatten().contains(LiftActionItem.Select),
+        )
+    }
 }
