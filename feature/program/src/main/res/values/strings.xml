@@ -110,6 +110,9 @@
     <string name="create_program_options_a11y">Program options</string>
     <string name="create_program_reorder_workouts">Reorder Workouts</string>
     <string name="create_program_rename_program_menu">Rename Program</string>
+    <string name="create_program_sheet_dashboard">Dashboard</string>
+    <string name="create_program_sheet_weekly_volume">Weekly volume</string>
+    <string name="create_program_sheet_workouts">Workouts</string>
     <string name="create_program_sheet_column_lift">Lift</string>
     <string name="create_program_sheet_column_sets">Sets</string>
     <string name="create_program_sheet_column_reps">Reps</string>

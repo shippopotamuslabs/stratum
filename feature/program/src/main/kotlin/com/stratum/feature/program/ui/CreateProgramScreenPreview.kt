@@ -270,6 +270,7 @@ private fun List<CreateProgramDayUi>.withPreviewSheetVolume(): List<CreateProgra
         day.copy(
             editState =
                 edit.copy(
+                    lifts = derived.lifts,
                     upperVolumeByMuscle = derived.upperVolumeByMuscle,
                     lowerVolumeByMuscle = derived.lowerVolumeByMuscle,
                     programUpperVolumeByMuscle = programSummaries.toUpperVolumeCards(),

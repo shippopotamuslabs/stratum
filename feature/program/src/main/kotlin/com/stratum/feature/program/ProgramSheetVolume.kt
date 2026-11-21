@@ -72,6 +72,46 @@ internal fun programSheetVolumeStrip(metrics: ProgramSheetMetrics): ProgramSheet
         programSetTotal = metrics.workouts.sumOf { workout -> workout.setTotal },
     )
 
+internal data class ProgramSheetWorkoutSummary(
+    val dayId: String,
+    val name: String,
+    val setTotal: Int,
+    val estimatedDurationMinutes: Int,
+)
+
+/**
+ * Inspector dashboard. Muscles, set total, and pivot are the strip and pivot
+ * models, so a parity test can compare them by value.
+ */
+internal data class ProgramSheetInspectorDashboard(
+    val muscles: List<ProgramSheetMuscleSets>,
+    val programSetTotal: Int,
+    val pivot: ProgramSheetVolumePivot,
+    val workouts: List<ProgramSheetWorkoutSummary>,
+)
+
+internal fun programSheetInspectorDashboard(
+    metrics: ProgramSheetMetrics,
+    days: List<CreateProgramDayUi>,
+): ProgramSheetInspectorDashboard {
+    val strip = programSheetVolumeStrip(metrics)
+    val names = days.associate { day -> day.id to day.name }
+    return ProgramSheetInspectorDashboard(
+        muscles = strip.programMuscles,
+        programSetTotal = strip.programSetTotal,
+        pivot = programSheetVolumePivot(metrics, days),
+        workouts =
+            metrics.workouts.map { workout ->
+                ProgramSheetWorkoutSummary(
+                    dayId = workout.dayId,
+                    name = names[workout.dayId].orEmpty(),
+                    setTotal = workout.setTotal,
+                    estimatedDurationMinutes = workout.estimatedDurationMinutes,
+                )
+            },
+    )
+}
+
 internal fun programSheetVolumePivot(
     metrics: ProgramSheetMetrics,
     days: List<CreateProgramDayUi>,

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarDuration
@@ -27,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,6 +47,7 @@ import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTopBar
+import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.progress.ProgramGenerationProgressUi
 import com.stratum.core.ui.theme.StratumSpacing
@@ -55,6 +58,7 @@ import com.stratum.core.ui.trainingsetup.MinimumVolumePreferencesScreen
 import com.stratum.core.ui.trainingsetup.SchedulePreferencesScreen
 import com.stratum.core.ui.trainingsetup.SpecializationPreferencesScreen
 import com.stratum.feature.program.ActiveSessionDiscardReason
+import com.stratum.feature.program.SheetPosture
 import com.stratum.feature.program.CreateProgramGenerateState
 import com.stratum.feature.program.CreateProgramStep
 import com.stratum.feature.program.CreateProgramUiState
@@ -71,6 +75,20 @@ fun CreateProgramScreen(
     sheetUndoEpoch: Int = 0,
 ) {
     val isEditor = state.step == CreateProgramStep.Editor
+    val posture = rememberSheetPosture()
+    val seededLift = LocalInitialProgramSheetLift.current
+    val inspector =
+        remember(isEditor, seededLift) {
+            ProgramSheetInspectorState(seededLift)
+        }
+    val hinge = (posture as? SheetPosture.TwoPane)?.hinge
+    val titleShift =
+        if (hinge == null || !isEditor) {
+            0.dp
+        } else {
+            val width = LocalConfiguration.current.screenWidthDp.dp
+            width * ((hinge.start / 2f) - 0.5f)
+        }
     val topBarTitle =
         when {
             isEditor && state.programName.isNotBlank() -> state.programName
@@ -129,6 +147,7 @@ fun CreateProgramScreen(
                 titleContent = {
                     Text(
                         text = topBarTitle,
+                        modifier = if (titleShift == 0.dp) Modifier else Modifier.offset(x = titleShift),
                         style = StratumThemeAccessor.typography.titleLarge,
                         color = StratumThemeAccessor.colors.textPrimary,
                         maxLines = 1,
@@ -144,6 +163,12 @@ fun CreateProgramScreen(
                 actions =
                     if (isEditor) {
                         {
+                            if (posture is SheetPosture.TwoPane) {
+                                StratumTopBarTextButton(
+                                    text = stringResource(R.string.create_program_sheet_dashboard),
+                                    onClick = inspector::returnToDashboard,
+                                )
+                            }
                             StratumIconButton(
                                 onClick = {
                                     programOptionsMode = CreateProgramOptionsMode.Menu
@@ -247,6 +272,8 @@ fun CreateProgramScreen(
                     state = state,
                     callbacks = callbacks,
                     topClearance = chrome.top,
+                    posture = posture,
+                    inspector = inspector,
                 )
         }
     }

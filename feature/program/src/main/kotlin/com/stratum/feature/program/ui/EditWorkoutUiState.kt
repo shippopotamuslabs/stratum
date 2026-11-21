@@ -55,7 +55,20 @@ data class EditLiftState(
     val equipmentId: String? = null,
     /** Display name for [equipmentId], joined from the equipment catalog. */
     val equipmentName: String? = null,
+    /**
+     * This lift's fractional volume at its current set count, from
+     * [com.stratum.application.program.ComputeWorkoutMuscleVolumeUseCase].
+     * Empty until derived metrics run.
+     */
+    val muscleCredits: List<EditLiftMuscleCredit> = emptyList(),
 ) : SupersetLinkableLift
+
+/** One muscle this lift credits. [primary] is a catalog primary tag. */
+data class EditLiftMuscleCredit(
+    val muscleName: String,
+    val sets: Double,
+    val primary: Boolean,
+)
 
 /**
  * Presentation set type for the EditWorkout set-type chip (S / M / MM / D).
