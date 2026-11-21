@@ -5,6 +5,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -263,6 +264,7 @@ internal fun ProgramSheetSelectableLiftRow(
             header = false,
             modifier = Modifier.weight(1f),
         )
+        Spacer(modifier = Modifier.width(ProgramSheetLiftActionsSlot))
     }
 }
 

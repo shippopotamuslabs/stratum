@@ -286,7 +286,7 @@ fun LiftActionsBottomSheet(
     onConfigureSuperset: () -> Unit,
     onSwapLift: () -> Unit,
     onRemoveLift: () -> Unit,
-    onReorderLifts: () -> Unit,
+    onReorderLifts: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     onConfigureRestTimes: (() -> Unit)? = null,
     onManageNotes: (() -> Unit)? = null,
@@ -321,7 +321,7 @@ fun LiftActionsSheetContent(
     onConfigureSuperset: () -> Unit,
     onSwapLift: () -> Unit,
     onRemoveLift: () -> Unit,
-    onReorderLifts: () -> Unit,
+    onReorderLifts: (() -> Unit)? = null,
     onConfigureRestTimes: (() -> Unit)? = null,
     onManageNotes: (() -> Unit)? = null,
     onViewPastSessionNotes: (() -> Unit)? = null,
@@ -339,6 +339,7 @@ fun LiftActionsSheetContent(
             showCut = onCut != null,
             showCopy = onCopy != null,
             showSelect = onSelect != null,
+            showReorder = onReorderLifts != null,
         )
     groups.forEachIndexed { index, group ->
         if (index > 0) {
@@ -362,7 +363,7 @@ fun LiftActionsSheetContent(
                     LiftActionRow(
                         text = stringResource(CoreUiR.string.edit_workout_reorder_lifts),
                         leadingIconRes = CoreUiR.drawable.ic_swap_vert,
-                        onClick = onReorderLifts,
+                        onClick = onReorderLifts ?: {},
                     )
                 LiftActionItem.RestTimes ->
                     LiftActionRow(
@@ -449,6 +450,7 @@ internal fun visibleLiftActionGroups(
     showCut: Boolean = false,
     showCopy: Boolean = false,
     showSelect: Boolean = false,
+    showReorder: Boolean = true,
 ): List<List<LiftActionItem>> {
     val primary =
         buildList {
@@ -456,7 +458,9 @@ internal fun visibleLiftActionGroups(
             if (showEditEquipment) {
                 add(LiftActionItem.EditEquipment)
             }
-            add(LiftActionItem.Reorder)
+            if (showReorder) {
+                add(LiftActionItem.Reorder)
+            }
         }
     val configure =
         buildList {

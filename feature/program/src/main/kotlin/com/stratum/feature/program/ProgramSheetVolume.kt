@@ -1,5 +1,6 @@
 package com.stratum.feature.program
 
+import com.stratum.core.ui.component.StratumMuscleVolumeCardState
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditWorkoutUiState
@@ -12,10 +13,8 @@ internal data class ProgramSheetMuscleSets(
 )
 
 internal data class ProgramSheetVolumeStrip(
-    val workoutDayId: String?,
-    val workoutName: String,
-    val workoutSetTotal: Int?,
     val programMuscles: List<ProgramSheetMuscleSets>,
+    val programSetTotal: Int,
 )
 
 internal data class ProgramSheetVolumeColumn(
@@ -61,40 +60,11 @@ internal fun programSheetMetricsFromEditorDays(days: List<CreateProgramDayUi>): 
     )
 }
 
-internal fun programSheetVolumeStrip(
-    metrics: ProgramSheetMetrics,
-    days: List<CreateProgramDayUi>,
-    visibleDayId: String?,
-): ProgramSheetVolumeStrip {
-    val muscles = metrics.programMuscleSets()
-    val visible = visibleWorkout(days, metrics, visibleDayId)
-    if (visible == null) {
-        return ProgramSheetVolumeStrip(
-            workoutDayId = null,
-            workoutName = "",
-            workoutSetTotal = null,
-            programMuscles = muscles,
-        )
-    }
-    val (day, workout) = visible
-    return ProgramSheetVolumeStrip(
-        workoutDayId = day.id,
-        workoutName = day.name,
-        workoutSetTotal = workout.setTotal,
-        programMuscles = muscles,
+internal fun programSheetVolumeStrip(metrics: ProgramSheetMetrics): ProgramSheetVolumeStrip =
+    ProgramSheetVolumeStrip(
+        programMuscles = metrics.programMuscleSets(),
+        programSetTotal = metrics.workouts.sumOf { workout -> workout.setTotal },
     )
-}
-
-private fun visibleWorkout(
-    days: List<CreateProgramDayUi>,
-    metrics: ProgramSheetMetrics,
-    visibleDayId: String?,
-): Pair<CreateProgramDayUi, ProgramSheetWorkoutMetrics>? {
-    val day = days.firstOrNull { it.id == visibleDayId } ?: return null
-    if (day.sheetEditOrNull() == null) return null
-    val workout = metrics.workouts.firstOrNull { it.dayId == day.id } ?: return null
-    return day to workout
-}
 
 internal fun programSheetVolumePivot(
     metrics: ProgramSheetMetrics,
@@ -136,8 +106,14 @@ internal fun formatSheetSetCount(sets: Double): String =
 internal fun programSheetVolumeMuscleLabel(name: String, sets: Double): String =
     "$name ${formatSheetSetCount(sets)}"
 
-private fun ProgramSheetMetrics.programMuscleSets(): List<ProgramSheetMuscleSets> =
-    (programUpperVolumeByMuscle + programLowerVolumeByMuscle)
+/** Plaintext per-muscle sets, same fractional credit as the volume cards. */
+internal fun programSheetVolumeMuscleLine(muscles: List<ProgramSheetMuscleSets>): String =
+    muscles.joinToString(separator = VOLUME_ITEM_GAP) { muscle ->
+        programSheetVolumeMuscleLabel(muscle.muscleName, muscle.sets)
+    }
+
+internal fun programSheetMuscleSets(cards: List<StratumMuscleVolumeCardState>): List<ProgramSheetMuscleSets> =
+    cards
         .filter { card -> card.setCount != ZERO_SETS }
         .map { card ->
             ProgramSheetMuscleSets(
@@ -146,6 +122,9 @@ private fun ProgramSheetMetrics.programMuscleSets(): List<ProgramSheetMuscleSets
                 sets = card.setCount,
             )
         }
+
+private fun ProgramSheetMetrics.programMuscleSets(): List<ProgramSheetMuscleSets> =
+    programSheetMuscleSets(programUpperVolumeByMuscle + programLowerVolumeByMuscle)
 
 /** The one set-counting formula for the sheet; every builder reads totals from here. */
 internal fun sheetSetTotal(lifts: List<EditLiftState>): Int = lifts.sumOf { lift -> lift.sets.size }
@@ -166,3 +145,4 @@ private fun ProgramSheetWorkoutMetrics?.setCountFor(muscle: MuscleGroup): Double
 
 private const val ZERO_SETS = 0.0
 private const val ONE_DECIMAL = "%.1f"
+private const val VOLUME_ITEM_GAP = " - "
