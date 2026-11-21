@@ -945,12 +945,6 @@ private fun ProgramSheetWorkoutMenu(
             leadingIcon = rememberVectorPainter(Icons.Outlined.Edit),
             onClick = onRename,
         )
-        CreateProgramOptionRow(
-            text = stringResource(R.string.create_program_remove_day),
-            leadingIconRes = CoreUiR.drawable.ic_delete,
-            onClick = onRemove,
-            destructive = true,
-        )
         if (showReorderLifts) {
             CreateProgramOptionRow(
                 text = stringResource(CoreUiR.string.edit_workout_reorder_lifts),
@@ -958,6 +952,12 @@ private fun ProgramSheetWorkoutMenu(
                 onClick = onReorderLifts,
             )
         }
+        CreateProgramOptionRow(
+            text = stringResource(R.string.create_program_remove_day),
+            leadingIconRes = CoreUiR.drawable.ic_delete,
+            onClick = onRemove,
+            destructive = true,
+        )
     }
 }
 

@@ -198,16 +198,16 @@ private fun DiscardHistoricalEditSheet(
             text = stringResource(R.string.history_edit_discard_message),
             style = StratumThemeAccessor.typography.bodyLarge,
         )
+        StratumOutlinedButton(
+            text = stringResource(R.string.history_edit_discard_keep),
+            onClick = onDismiss,
+            modifier = Modifier.fillMaxWidth(),
+        )
         StratumButton(
             text = stringResource(R.string.history_edit_discard_confirm),
             onClick = onConfirmDiscard,
             modifier = Modifier.fillMaxWidth(),
             destructive = true,
-        )
-        StratumOutlinedButton(
-            text = stringResource(R.string.history_edit_discard_keep),
-            onClick = onDismiss,
-            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
