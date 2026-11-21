@@ -35,3 +35,17 @@ fun programSheetVolumePivotTonal() {
 fun programSheetVolumePivotGlass() {
     ProgramSheetVolumePivotGlassPreviewContent()
 }
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun programSheetVolumePivotTallTonal() {
+    ProgramSheetVolumePivotTallPreviewContent()
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun programSheetVolumePivotTallGlass() {
+    ProgramSheetVolumePivotTallGlassPreviewContent()
+}
