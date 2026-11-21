@@ -14,13 +14,6 @@ import com.android.tools.screenshot.PreviewTest
 @PreviewTest
 @PreviewLightDark
 @Composable
-fun createProgramEditorGlass() {
-    CreateProgramGlassPreviewContent()
-}
-
-@PreviewTest
-@PreviewLightDark
-@Composable
 fun createProgramSheetGlass() {
     CreateProgramSheetGlassPreviewContent()
 }

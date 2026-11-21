@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
@@ -42,7 +41,6 @@ import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumReorderItem
 import com.stratum.core.ui.component.StratumReorderListScreen
 import com.stratum.core.ui.component.StratumDetailScaffold
-import com.stratum.core.ui.component.StratumScopedMuscleVolumeRow
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTopBar
@@ -59,7 +57,6 @@ import com.stratum.feature.program.ActiveSessionDiscardReason
 import com.stratum.feature.program.CreateProgramGenerateState
 import com.stratum.feature.program.CreateProgramStep
 import com.stratum.feature.program.CreateProgramUiState
-import com.stratum.feature.program.ProgramEditorSurface
 import com.stratum.feature.program.R
 import kotlinx.coroutines.ensureActive
 
@@ -87,7 +84,6 @@ fun CreateProgramScreen(
             userMessage = userMessage,
             sheetUndoEpoch = sheetUndoEpoch,
             step = state.step,
-            editorSurface = state.editorSurface,
             onUndo = callbacks.onUndoSheetLift,
             onDismiss = callbacks.onDismissSheetUndo,
         )
@@ -245,19 +241,11 @@ fun CreateProgramScreen(
                     topClearance = chrome.top,
                 )
             CreateProgramStep.Editor ->
-                if (state.editorSurface == ProgramEditorSurface.Sheet) {
-                    ProgramSheet(
-                        state = state,
-                        callbacks = callbacks,
-                        topClearance = chrome.top,
-                    )
-                } else {
-                    CreateProgramEditorContent(
-                        state = state,
-                        callbacks = callbacks,
-                        topClearance = chrome.top,
-                    )
-                }
+                ProgramSheet(
+                    state = state,
+                    callbacks = callbacks,
+                    topClearance = chrome.top,
+                )
         }
     }
 
@@ -328,10 +316,6 @@ fun CreateProgramScreen(
                 showProgramOptionsSheet = false
                 programOptionsMode = CreateProgramOptionsMode.Menu
             },
-            onShowSheet = {
-                showProgramOptionsSheet = false
-                callbacks.onShowSheet()
-            },
             onDismiss = {
                 showProgramOptionsSheet = false
                 programOptionsMode = CreateProgramOptionsMode.Menu
@@ -354,16 +338,12 @@ private fun rememberProgramSheetUndoHost(
     userMessage: String?,
     sheetUndoEpoch: Int,
     step: CreateProgramStep,
-    editorSurface: ProgramEditorSurface,
     onUndo: () -> Unit,
     onDismiss: () -> Unit,
 ): SnackbarHostState? {
     val snackbarHostState = remember { SnackbarHostState() }
     val undoLabel = stringResource(R.string.create_program_sheet_undo)
-    val visible =
-        userMessage != null &&
-            step == CreateProgramStep.Editor &&
-            editorSurface == ProgramEditorSurface.Sheet
+    val visible = userMessage != null && step == CreateProgramStep.Editor
     LaunchedEffect(sheetUndoEpoch) {
         val message = userMessage ?: return@LaunchedEffect
         if (!visible) {
@@ -507,170 +487,6 @@ private fun GeneratingContent(
             )
         }
     }
-}
-
-@Composable
-private fun CreateProgramEditorContent(
-    state: CreateProgramUiState,
-    callbacks: CreateProgramScreenCallbacks,
-    // Glass (§12.8, STR-191): the fixed day tabs / actions / volume rows sit
-    // in-flow above the embedded workout list, so they clear the bar via the
-    // column — the list viewport starts below them and keeps its s16 top
-    // (no double clearance). 0 keeps solid hosts pixel-identical.
-    topClearance: Dp = 0.dp,
-) {
-    Column(modifier = Modifier.fillMaxSize().padding(top = topClearance)) {
-        DayTabsRow(
-            days = state.days,
-            selectedDayId = state.selectedDayId,
-            canAddDay = state.canAddDay,
-            onSelectDay = callbacks.onSelectDay,
-            onAddDay = callbacks.onAddDay,
-        )
-        DayActionButtonsRow(
-            onRemove = callbacks.onRemoveDay,
-            onRenameWorkout = callbacks.onShowRenameWorkout,
-        )
-        CreateProgramVolumeRow(state = state)
-        val selected = state.selectedDay
-        when {
-            selected == null ->
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    StratumText(text = stringResource(R.string.create_program_add_day), muted = true)
-                }
-            selected.isRest || selected.editState == null || selected.editState.lifts.isEmpty() ->
-                RestDayBody(onAddExercise = callbacks.onAddExercise)
-            else ->
-                EmbeddedWorkoutEditor(
-                    editState = selected.editState,
-                    callbacks = callbacks,
-                    modifier = Modifier.weight(1f),
-                )
-        }
-    }
-}
-
-@Composable
-private fun CreateProgramVolumeRow(state: CreateProgramUiState) {
-    val selectedEdit = state.selectedDay?.editState
-    val metricsEdit =
-        selectedEdit
-            ?: state.days.firstNotNullOfOrNull { day -> day.editState }
-            ?: return
-    val workoutCards =
-        if (selectedEdit != null) {
-            selectedEdit.upperVolumeByMuscle + selectedEdit.lowerVolumeByMuscle
-        } else {
-            emptyList()
-        }
-    val programCards = metricsEdit.programUpperVolumeByMuscle + metricsEdit.programLowerVolumeByMuscle
-    if (workoutCards.isEmpty() && programCards.isEmpty()) return
-    StratumScopedMuscleVolumeRow(
-        workoutCards = workoutCards,
-        programCards = programCards,
-        title = stringResource(R.string.edit_workout_volume_title),
-        scopeLabels =
-            listOf(
-                stringResource(R.string.edit_workout_volume_scope_workout),
-                stringResource(R.string.edit_workout_volume_scope_program),
-            ),
-        modifier = Modifier.padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
-    )
-}
-
-@Composable
-private fun DayActionButtonsRow(
-    onRemove: () -> Unit,
-    onRenameWorkout: () -> Unit,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(start = StratumSpacing.s12, end = StratumSpacing.s12, top = StratumSpacing.s12, bottom = StratumSpacing.s4),
-        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
-    ) {
-        StratumOutlinedButton(
-            text = stringResource(R.string.create_program_remove_day),
-            onClick = onRemove,
-            modifier = Modifier.weight(1f),
-        )
-        StratumOutlinedButton(
-            text = stringResource(R.string.create_program_rename_workout),
-            onClick = onRenameWorkout,
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
-private fun RestDayBody(onAddExercise: () -> Unit) {
-    Column(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .padding(StratumSpacing.s16),
-        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
-    ) {
-        StratumText(
-            text = stringResource(R.string.create_program_rest_day),
-            style = StratumThemeAccessor.typography.titleLarge,
-        )
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .border(
-                        width = StratumThemeAccessor.shapes.borderWidth,
-                        color = StratumThemeAccessor.colors.borderSubtle,
-                        shape = StratumThemeAccessor.shapes.panel,
-                    )
-                    .padding(StratumSpacing.s16),
-        ) {
-            StratumText(
-                text = stringResource(R.string.create_program_rest_day_hint),
-                muted = true,
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            StratumText(
-                text = stringResource(R.string.create_program_zero_lifts),
-                style = StratumThemeAccessor.typography.titleLarge,
-            )
-            StratumText(
-                text = stringResource(R.string.create_program_add_lifts),
-                style =
-                    StratumThemeAccessor.typography.bodyLarge.copy(
-                        color = StratumThemeAccessor.colors.accent,
-                    ),
-                // §12.5: heightIn floors the bare text link at the 48dp
-                // target height at any font scale; the padding is the
-                // visual breathing room inside that target.
-                modifier =
-                    Modifier
-                        .clickable(onClick = onAddExercise)
-                        .heightIn(min = 48.dp)
-                        .padding(vertical = StratumSpacing.s12),
-            )
-        }
-    }
-}
-
-@Composable
-private fun EmbeddedWorkoutEditor(
-    editState: EditWorkoutUiState.Loaded,
-    callbacks: CreateProgramScreenCallbacks,
-    modifier: Modifier = Modifier,
-) {
-    EditWorkoutEmbeddedContent(
-        state = editState,
-        callbacks = editWorkoutCallbacks(callbacks),
-        modifier = modifier,
-    )
 }
 
 internal fun editWorkoutCallbacks(callbacks: CreateProgramScreenCallbacks): EditWorkoutScreenCallbacks =

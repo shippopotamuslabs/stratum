@@ -19,8 +19,6 @@ data class CreateProgramScreenCallbacks(
     val onGenerate: () -> Unit = {},
     val onSelectDay: (String) -> Unit = {},
     val onAddDay: () -> Unit = {},
-    /** Dev entry: show the whole-program sheet. Does not mark the draft dirty. */
-    val onShowSheet: () -> Unit = {},
     val onRemoveDay: () -> Unit = {},
     val onShowRenameWorkout: () -> Unit = {},
     val onDismissRenameWorkout: () -> Unit = {},
