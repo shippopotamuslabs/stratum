@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -264,12 +265,18 @@ private fun InspectorLiftContributionBlock(
     dayId: String,
 ) {
     if (lift.muscleCredits.isEmpty()) return
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
     val contribution =
         remember(lift.muscleCredits, dashboard, dayId) {
             inspectorLiftContribution(credits = lift.muscleCredits, dashboard = dashboard, dayId = dayId)
         }
     Column(
-        modifier = Modifier.padding(horizontal = StratumSpacing.s16),
+        modifier =
+            Modifier
+                .padding(horizontal = StratumSpacing.s16)
+                .background(color = colors.surfaceRaised, shape = shapes.panel)
+                .padding(StratumSpacing.s16),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
     ) {
         StratumText(
@@ -299,28 +306,35 @@ private fun InspectorLiftContributionBlock(
                 )
             }
         }
+        Spacer(modifier = Modifier.height(StratumSpacing.s8))
         StratumText(
-            text =
-                stringResource(
-                    R.string.create_program_sheet_program_totals_now,
-                    contribution.rows.joinToString(separator = " · ") { row ->
-                        "${row.muscleName} ${formatSheetSetCount(row.programSets)}"
-                    },
-                ),
+            text = stringResource(R.string.create_program_sheet_program_totals),
+            style = StratumThemeAccessor.typography.labelLarge,
             muted = true,
         )
+        StratumText(
+            text =
+                contribution.rows.joinToString(separator = " · ") { row ->
+                    "${row.muscleName} ${formatSheetSetCount(row.programSets)}"
+                },
+        )
+        Spacer(modifier = Modifier.height(StratumSpacing.s8))
         StratumText(
             text =
                 stringResource(
                     R.string.create_program_sheet_workout_set_total,
                     workoutName,
-                    pluralStringResource(
-                        R.plurals.create_program_sheet_set_total,
-                        contribution.workoutSetTotal,
-                        contribution.workoutSetTotal,
-                    ),
                 ),
+            style = StratumThemeAccessor.typography.labelLarge,
             muted = true,
+        )
+        StratumText(
+            text =
+                pluralStringResource(
+                    R.plurals.create_program_sheet_set_total,
+                    contribution.workoutSetTotal,
+                    contribution.workoutSetTotal,
+                ),
         )
     }
 }
