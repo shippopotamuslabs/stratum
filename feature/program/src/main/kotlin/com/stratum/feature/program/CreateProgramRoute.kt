@@ -3,6 +3,7 @@ package com.stratum.feature.program
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -10,6 +11,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.feature.program.ui.CreateProgramScreen
 import com.stratum.feature.program.ui.CreateProgramScreenCallbacks
+import com.stratum.feature.program.ui.LocalProgramSheetClipboard
 
 @Composable
 fun CreateProgramRoute(
@@ -24,6 +26,9 @@ fun CreateProgramRoute(
     viewModel: CreateProgramViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
+    val sheetUndoEpoch by viewModel.sheetUndoEpoch.collectAsStateWithLifecycle()
+    val sheetClipboard by viewModel.sheetClipboard.collectAsStateWithLifecycle()
 
     LaunchedEffect(startInScratch, finishOnboarding, programId) {
         viewModel.configureEntry(
@@ -47,8 +52,11 @@ fun CreateProgramRoute(
         }
     }
 
-    CreateProgramScreen(
+    CompositionLocalProvider(LocalProgramSheetClipboard provides sheetClipboard) {
+        CreateProgramScreen(
         state = state,
+        userMessage = userMessage,
+        sheetUndoEpoch = sheetUndoEpoch,
         callbacks =
             CreateProgramScreenCallbacks(
                 onBack = {
@@ -86,6 +94,13 @@ fun CreateProgramRoute(
                 onAddExercise = { viewModel.addExerciseToSelectedDay(onSwapLiftClick) },
                 onUpdateSelectedWorkout = viewModel::updateSelectedWorkout,
                 onRemoveLift = viewModel::removeSelectedLift,
+                onCutSheetLift = viewModel::beginSheetCut,
+                onCopySheetLift = viewModel::beginSheetCopy,
+                onCancelSheetClipboard = viewModel::cancelSheetClipboard,
+                onPasteSheetLift = viewModel::pasteSheetLift,
+                onRemoveSheetLift = viewModel::removeSheetLift,
+                onUndoSheetLift = viewModel::undoSheetLiftChange,
+                onDismissSheetUndo = viewModel::dismissSheetLiftUndo,
                 onLinkSupersetWithPrevious = viewModel::linkSupersetWithPrevious,
                 onLinkSupersetWithNext = viewModel::linkSupersetWithNext,
                 onRemoveFromSuperset = viewModel::removeFromSuperset,
@@ -111,7 +126,8 @@ fun CreateProgramRoute(
                 onDismissActiveSessionDiscard = viewModel::dismissActiveSessionDiscard,
             ),
         modifier = modifier.fillMaxSize(),
-    )
+        )
+    }
 }
 
 /**

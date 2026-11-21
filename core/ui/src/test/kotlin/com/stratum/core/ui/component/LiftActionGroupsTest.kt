@@ -48,4 +48,28 @@ class LiftActionGroupsTest {
             groups,
         )
     }
+
+    @Test
+    @DisplayName("Given cut and copy when grouped then they sit above remove and stay hidden otherwise")
+    fun cutAndCopySitAboveRemove() {
+        val groups =
+            visibleLiftActionGroups(
+                showEditEquipment = false,
+                showRestTimes = false,
+                showManageNotes = false,
+                showPastNotes = false,
+                showCut = true,
+                showCopy = true,
+            )
+
+        assertEquals(
+            listOf(
+                listOf(LiftActionItem.Swap, LiftActionItem.Reorder),
+                listOf(LiftActionItem.Superset),
+                listOf(LiftActionItem.Cut, LiftActionItem.Copy),
+                listOf(LiftActionItem.Remove),
+            ),
+            groups,
+        )
+    }
 }

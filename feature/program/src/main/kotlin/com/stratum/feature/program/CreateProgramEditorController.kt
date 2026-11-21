@@ -174,6 +174,14 @@ internal class CreateProgramEditorController(
         }
     }
 
+    /** Applies a pure day-list result. Same list instance is not dirty and does not refresh metrics. */
+    fun applyEditorDays(nextDays: List<CreateProgramDayUi>) {
+        state.update { current ->
+            if (nextDays === current.days) return@update current
+            current.copy(days = nextDays, isDirty = true).withEditorDerivedMetrics()
+        }
+    }
+
     fun startReorderLifts(onNavigate: (workoutId: String) -> Unit) {
         val day = state.value.selectedDay ?: return
         val edit = day.editState ?: return
@@ -404,6 +412,7 @@ internal class CreateProgramEditorController(
 
     private suspend fun persistNow(mode: CreateProgramPersistMode, onDone: () -> Unit) {
         val current = state.value
+        val writtenDays = current.days
         state.update { it.copy(isSaving = true, saveErrorMessage = null) }
         val draft = current.toDomainProgram(loadedProgramMeta)
         val failureMessage =
@@ -444,6 +453,10 @@ internal class CreateProgramEditorController(
                     }
             }
         if (failureMessage == null) {
+            if (state.value.days != writtenDays) {
+                state.update { it.copy(isSaving = false) }
+                return
+            }
             if (finishOnboarding() && mode == CreateProgramPersistMode.Activate) {
                 completeOnboarding(getUserTrainingProfile())
             }

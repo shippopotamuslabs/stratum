@@ -118,6 +118,13 @@
     <string name="create_program_sheet_previous_lift">Previous lift</string>
     <string name="create_program_sheet_next_lift">Next lift</string>
     <string name="create_program_sheet_workout_meta">%1$s · %2$s</string>
+    <string name="create_program_sheet_paste_here">Paste here</string>
+    <string name="create_program_sheet_cancel">Cancel</string>
+    <string name="create_program_sheet_undo">Undo</string>
+    <string name="create_program_sheet_leaves_superset">This lift leaves its superset.</string>
+    <string name="create_program_sheet_moved">Moved %1$s.</string>
+    <string name="create_program_sheet_copied">Copied %1$s.</string>
+    <string name="create_program_sheet_removed">Removed %1$s.</string>
     <plurals name="create_program_sheet_set_total">
         <item quantity="one">%d set</item>
         <item quantity="other">%d sets</item>

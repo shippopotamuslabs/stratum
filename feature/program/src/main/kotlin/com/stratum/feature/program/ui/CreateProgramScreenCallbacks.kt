@@ -30,6 +30,13 @@ data class CreateProgramScreenCallbacks(
     /** Prefer typed mutation callbacks; retained for any residual transform-style callers. */
     val onUpdateSelectedWorkout: ((EditWorkoutUiState.Loaded) -> EditWorkoutUiState.Loaded) -> Unit = {},
     val onRemoveLift: (workoutLiftId: String) -> Unit = {},
+    val onCutSheetLift: (dayId: String, workoutLiftId: String) -> Unit = { _, _ -> },
+    val onCopySheetLift: (dayId: String, workoutLiftId: String) -> Unit = { _, _ -> },
+    val onCancelSheetClipboard: () -> Unit = {},
+    val onPasteSheetLift: (dayId: String, message: String) -> Unit = { _, _ -> },
+    val onRemoveSheetLift: (dayId: String, workoutLiftId: String, message: String) -> Unit = { _, _, _ -> },
+    val onUndoSheetLift: () -> Unit = {},
+    val onDismissSheetUndo: () -> Unit = {},
     val onLinkSupersetWithPrevious: (workoutLiftId: String) -> Unit = {},
     val onLinkSupersetWithNext: (workoutLiftId: String) -> Unit = {},
     val onRemoveFromSuperset: (workoutLiftId: String) -> Unit = {},
