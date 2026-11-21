@@ -16,16 +16,6 @@ import com.stratum.core.ui.theme.StratumThemeId
  * keeps solid chrome under the carve-out, already pinned by the Neo goldens.
  */
 @Composable
-internal fun CreateProgramGlassPreviewContent() {
-    StratumGlassHost {
-        CreateProgramStepPreviewContent(
-            family = StratumThemeId.Tonal,
-            state = previewEditorState(),
-        )
-    }
-}
-
-@Composable
 internal fun CreateProgramSheetGlassPreviewContent() {
     StratumGlassHost {
         CreateProgramStepPreviewContent(

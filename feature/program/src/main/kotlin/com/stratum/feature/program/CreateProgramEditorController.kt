@@ -95,11 +95,6 @@ internal class CreateProgramEditorController(
         state.update { it.copy(selectedDayId = dayId) }
     }
 
-    /** Dev entry onto the whole-program sheet. Does not mark the draft dirty. */
-    fun showSheet() {
-        state.update { current -> current.copy(editorSurface = ProgramEditorSurface.Sheet) }
-    }
-
     fun addDay() {
         state.update { current -> CreateProgramDayEditor.addRestDay(current) }
     }

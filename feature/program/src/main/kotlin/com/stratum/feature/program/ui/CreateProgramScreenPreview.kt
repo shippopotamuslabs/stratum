@@ -16,7 +16,6 @@ import com.stratum.feature.program.CreateProgramDayUi
 import com.stratum.feature.program.CreateProgramGenerateState
 import com.stratum.feature.program.CreateProgramStep
 import com.stratum.feature.program.CreateProgramUiState
-import com.stratum.feature.program.ProgramEditorSurface
 import com.stratum.feature.program.ProgramSheetLiftTarget
 import com.stratum.feature.program.toVolumeInputs
 import com.stratum.feature.program.withDerivedMetrics
@@ -89,18 +88,6 @@ private fun CreateProgramGenerateErrorNeoPreview() {
 
 @PreviewLightDark
 @Composable
-private fun CreateProgramEditorTonalPreview() {
-    CreateProgramStepPreviewContent(family = StratumThemeId.Tonal, state = previewEditorState())
-}
-
-@PreviewLightDark
-@Composable
-private fun CreateProgramEditorNeoPreview() {
-    CreateProgramStepPreviewContent(family = StratumThemeId.NeoBrutalist, state = previewEditorState())
-}
-
-@PreviewLightDark
-@Composable
 private fun CreateProgramSheetTonalPreview() {
     CreateProgramStepPreviewContent(family = StratumThemeId.Tonal, state = previewProgramSheetState())
 }
@@ -158,35 +145,10 @@ internal fun previewGenerateErrorState(): CreateProgramUiState =
         generateState = CreateProgramGenerateState.Error,
     )
 
-internal fun previewEditorState(): CreateProgramUiState =
-    CreateProgramUiState(
-        step = CreateProgramStep.Editor,
-        programName = "My 3 Day",
-        days =
-            listOf(
-                CreateProgramDayUi(
-                    id = "day-1",
-                    name = "Push Day",
-                    position = 0,
-                    isRest = false,
-                    editState = previewEditWorkoutLoadedState(),
-                ),
-                CreateProgramDayUi(
-                    id = "day-2",
-                    name = "Rest",
-                    position = 1,
-                    isRest = true,
-                    editState = null,
-                ),
-            ),
-        selectedDayId = "day-1",
-    )
-
 internal fun previewProgramSheetState(): CreateProgramUiState {
     val bare =
         CreateProgramUiState(
             step = CreateProgramStep.Editor,
-            editorSurface = ProgramEditorSurface.Sheet,
             programName = "My 3 Day",
             days =
                 listOf(

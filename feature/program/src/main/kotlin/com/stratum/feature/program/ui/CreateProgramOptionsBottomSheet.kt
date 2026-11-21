@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.TableRows
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -46,7 +45,6 @@ fun CreateProgramOptionsBottomSheet(
     onReorderWorkouts: () -> Unit,
     onReorderLifts: () -> Unit,
     onRenameProgram: (String) -> Unit,
-    onShowSheet: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     when (mode) {
@@ -69,11 +67,6 @@ fun CreateProgramOptionsBottomSheet(
                     text = stringResource(R.string.create_program_rename_program_menu),
                     leadingIcon = rememberVectorPainter(Icons.Outlined.Edit),
                     onClick = { onModeChange(CreateProgramOptionsMode.RenameProgram) },
-                )
-                CreateProgramOptionRow(
-                    text = stringResource(R.string.create_program_open_sheet),
-                    leadingIcon = rememberVectorPainter(Icons.Outlined.TableRows),
-                    onClick = onShowSheet,
                 )
             }
         }
