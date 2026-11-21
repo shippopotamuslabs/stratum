@@ -107,6 +107,7 @@ fun CreateProgramRoute(
                 onCopySheetLift = viewModel::beginSheetCopy,
                 onCancelSheetClipboard = viewModel::cancelSheetClipboard,
                 onPasteSheetLift = viewModel::pasteSheetLift,
+                onMoveSheetLiftTo = viewModel::moveSheetLiftTo,
                 onRemoveSheetLift = viewModel::removeSheetLift,
                 onUndoSheetLift = viewModel::undoSheetLiftChange,
                 onDismissSheetUndo = viewModel::dismissSheetLiftUndo,

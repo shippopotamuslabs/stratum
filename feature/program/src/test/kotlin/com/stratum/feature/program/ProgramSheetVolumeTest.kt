@@ -382,6 +382,44 @@ class ProgramSheetVolumeTest {
         assertEquals(2.0, four.first { credit -> credit.muscleName == triceps }.sets, 0.0)
     }
 
+    @Test
+    @DisplayName("the inspector contribution block pairs credits with program totals and the workout total")
+    fun inspectorContributionPairsCreditsWithTotals() {
+        val days = fixtureDays().withStoredCards()
+        val dashboard = programSheetInspectorDashboard(programSheetMetricsFromEditorDays(days), days)
+        val credits = creditedBench(setCount = 3)
+
+        val contribution = inspectorLiftContribution(credits = credits, dashboard = dashboard, dayId = DAY_A)
+
+        val chestTotal = dashboard.muscles.first { muscle -> muscle.muscleName == MuscleGroup.Chest.toVolumeDisplayName() }.sets
+        val chestRow = contribution.rows.first { row -> row.muscleName == MuscleGroup.Chest.toVolumeDisplayName() }
+        assertEquals(3.0, chestRow.creditSets, 0.0)
+        assertTrue(chestRow.primary)
+        assertEquals(chestTotal, chestRow.programSets, 0.0)
+        val tricepsRow = contribution.rows.first { row -> row.muscleName == MuscleGroup.Tricep.toVolumeDisplayName() }
+        assertFalse(tricepsRow.primary)
+        assertEquals(1.5, tricepsRow.creditSets, 0.0)
+        assertEquals(
+            dashboard.workouts.first { workout -> workout.dayId == DAY_A }.setTotal,
+            contribution.workoutSetTotal,
+        )
+
+        val unknown =
+            inspectorLiftContribution(
+                credits =
+                    listOf(
+                        com.stratum.feature.program.ui.EditLiftMuscleCredit(
+                            muscleName = "Nowhere",
+                            sets = 2.0,
+                            primary = true,
+                        ),
+                    ),
+                dashboard = dashboard,
+                dayId = DAY_A,
+            )
+        assertEquals(2.0, unknown.rows.single().programSets, 0.0)
+    }
+
     private fun creditedBench(setCount: Int) =
         day(
             id = DAY_A,

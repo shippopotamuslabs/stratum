@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -346,6 +347,7 @@ private fun ProgramSheetFrame(
     modifier: Modifier = Modifier,
 ) {
     val clipboard = LocalProgramSheetClipboard.current
+    val resources = LocalContext.current.resources
     val rows =
         remember(state.days, clipboard != null) {
             programSheetRows(state.days, clipboardActive = clipboard != null)
@@ -366,6 +368,28 @@ private fun ProgramSheetFrame(
                 onCloseLift = {
                     onPrepareLiftChange()
                     inspector.selected = null
+                },
+                onMoveLiftTo = { toDayId ->
+                    val target = inspector.selected
+                    if (target != null && target.dayId != toDayId) {
+                        onPrepareLiftChange()
+                        val liftName =
+                            state.days
+                                .firstOrNull { day -> day.id == target.dayId }
+                                ?.editState
+                                ?.lifts
+                                ?.firstOrNull { lift -> lift.workoutLiftId == target.workoutLiftId }
+                                ?.name
+                                .orEmpty()
+                        callbacks.onMoveSheetLiftTo(
+                            target.dayId,
+                            target.workoutLiftId,
+                            toDayId,
+                            resources.getString(R.string.create_program_sheet_moved, liftName),
+                        )
+                        callbacks.onSelectDay(toDayId)
+                        inspector.selected = target.copy(dayId = toDayId)
+                    }
                 },
                 onRirClick = onRirClick,
                 onShowLiftActions = onShowLiftActions,

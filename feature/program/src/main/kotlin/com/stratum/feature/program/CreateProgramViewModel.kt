@@ -440,6 +440,42 @@ class CreateProgramViewModel @Inject constructor(
     }
 
     /**
+     * Inspector Move To. Moves one lift to the end of another workout through
+     * the same move and undo machinery as a cut paste. The lift leaves any
+     * superset group behind, exactly as a pasted cut does.
+     */
+    fun moveSheetLiftTo(dayId: String, workoutLiftId: String, toDayId: String, message: String) {
+        if (dayId == toDayId) return
+        val days = _uiState.value.days
+        val sourceEdit = days.firstOrNull { day -> day.id == dayId }?.editState ?: return
+        val index = sourceEdit.lifts.indexOfFirst { lift -> lift.workoutLiftId == workoutLiftId }
+        if (index < 0) return
+        val targetEdit = days.firstOrNull { day -> day.id == toDayId }?.editState ?: return
+        val lift = sourceEdit.lifts[index]
+        val next =
+            moveProgramSheetLift(
+                days = days,
+                fromDayId = dayId,
+                toDayId = toDayId,
+                workoutLiftId = workoutLiftId,
+                targetPosition = targetEdit.lifts.size,
+                detachedLift = lift,
+            )
+        if (next === days) return
+        val clip =
+            ProgramSheetClipboard(
+                kind = ProgramSheetClipboardKind.Cut,
+                fromDayId = dayId,
+                lift = lift,
+                originalIndex = index,
+                sourceLiftsBefore = sourceEdit.lifts,
+            )
+        sheetLiftUndo = sheetPasteUndo(clip, toDayId, workoutLiftId)
+        publishSheetUndo(publishSheetUndoMessage(currentEpoch = _sheetUndoEpoch.value, message = message))
+        editor.applyEditorDays(next)
+    }
+
+    /**
      * Sheet delete. Records the lift and its index for Undo, then the existing remove.
      * Tabbed delete does not call this, so it does not gain a snackbar.
      */
