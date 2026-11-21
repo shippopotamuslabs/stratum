@@ -502,7 +502,9 @@ private fun LiftActionsGroupDivider(modifier: Modifier = Modifier) {
             modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(StratumThemeAccessor.colors.borderSubtle),
+                // borderInteractive reads on the sheet surface: borderSubtle
+                // sits at 1.06:1 on surfaceInset in Tonal dark (STR-318).
+                .background(StratumThemeAccessor.colors.borderInteractive),
     )
 }
 
