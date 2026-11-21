@@ -1,1 +1,1 @@
-Sheet Mode polish: a cut or copied lift now pastes from a dashed slot at the end of each workout, labeled with the lift's name. The volume table keeps every muscle name beside its numbers at full scroll. Bottom sheet rows press inside their rounded corners, and Remove sits last in the workout menu.
+Two Sheet Mode fixes. The Lift Options sheet groups read clearly: the dividers between action groups use a stronger line. Rest days read as days: each rest day sits in its own band, apart from the lift list above it.
