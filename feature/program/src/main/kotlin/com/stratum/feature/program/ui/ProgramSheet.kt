@@ -1,8 +1,11 @@
 package com.stratum.feature.program.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,13 +13,16 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -33,9 +39,14 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -103,9 +114,12 @@ internal fun ProgramSheet(
     topClearance: Dp,
     modifier: Modifier = Modifier,
 ) {
-    val rows = remember(state.days) { programSheetRows(state.days) }
-    val seededLift = LocalInitialProgramSheetLift.current
     val clipboard = LocalProgramSheetClipboard.current
+    val rows =
+        remember(state.days, clipboard != null) {
+            programSheetRows(state.days, clipboardActive = clipboard != null)
+        }
+    val seededLift = LocalInitialProgramSheetLift.current
     val selection = LocalProgramSheetSelection.current
     val dockHost = remember { EditWorkoutDockHostState() }
     val scroll =
@@ -234,15 +248,11 @@ internal fun ProgramSheet(
                                 ProgramSheetStickyWorkout(
                                     dayId = row.dayId,
                                     days = state.days,
-                                    clipboard = clipboard,
                                     onAddLift = { dayId ->
                                         sheetCallbacks.onSelectDay(dayId)
                                         sheetCallbacks.onAddExercise()
                                     },
                                     onOpenMenu = { dayId -> menuDayId = dayId },
-                                    onPaste = { dayId, message ->
-                                        sheetCallbacks.onPasteSheetLift(dayId, message)
-                                    },
                                 )
                             }
                         is ProgramSheetRow.ColumnHeader ->
@@ -271,6 +281,29 @@ internal fun ProgramSheet(
                                     onShowLiftActions = { liftActionsLiftId = it },
                                     onRirClick = { set -> rirSetId = set.setId },
                                     onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
+                                )
+                            }
+                        is ProgramSheetRow.PasteSlot ->
+                            item(key = "paste-${row.dayId}") {
+                                val held = clipboard ?: return@item
+                                val message =
+                                    when (held.kind) {
+                                        ProgramSheetClipboardKind.Cut ->
+                                            stringResource(
+                                                R.string.create_program_sheet_moved,
+                                                held.lift.name,
+                                            )
+                                        ProgramSheetClipboardKind.Copy ->
+                                            stringResource(
+                                                R.string.create_program_sheet_copied,
+                                                held.lift.name,
+                                            )
+                                    }
+                                ProgramSheetPasteSlotRow(
+                                    liftName = held.lift.name,
+                                    onClick = {
+                                        sheetCallbacks.onPasteSheetLift(row.dayId, message)
+                                    },
                                 )
                             }
                         is ProgramSheetRow.Rest ->
@@ -617,22 +650,11 @@ private suspend fun LazyListState.scrollToSheetLift(
 private fun ProgramSheetStickyWorkout(
     dayId: String,
     days: List<CreateProgramDayUi>,
-    clipboard: ProgramSheetClipboard?,
     onAddLift: (String) -> Unit,
     onOpenMenu: (String) -> Unit,
-    onPaste: (String, String) -> Unit,
 ) {
     val day = days.firstOrNull { it.id == dayId } ?: return
     val edit = day.editState ?: return
-    val held = clipboard
-    val pasteMessage =
-        when (held?.kind) {
-            ProgramSheetClipboardKind.Cut ->
-                stringResource(R.string.create_program_sheet_moved, held.lift.name)
-            ProgramSheetClipboardKind.Copy ->
-                stringResource(R.string.create_program_sheet_copied, held.lift.name)
-            null -> null
-        }
     val muscles = programSheetMuscleSets(edit.upperVolumeByMuscle + edit.lowerVolumeByMuscle)
     val chips = remember(muscles) { programSheetVolumeChips(muscles) }
     ProgramSheetWorkoutHeader(
@@ -642,7 +664,6 @@ private fun ProgramSheetStickyWorkout(
         chips = chips,
         onAddLift = { onAddLift(day.id) },
         onOpenMenu = { onOpenMenu(day.id) },
-        onPaste = pasteMessage?.let { message -> { onPaste(day.id, message) } },
     )
 }
 
@@ -654,7 +675,6 @@ private fun ProgramSheetWorkoutHeader(
     chips: List<ProgramSheetVolumeChip>,
     onAddLift: () -> Unit,
     onOpenMenu: () -> Unit,
-    onPaste: (() -> Unit)? = null,
 ) {
     val colors = StratumThemeAccessor.colors
     val setsLabel = pluralStringResource(R.plurals.create_program_sheet_set_total, setTotal, setTotal)
@@ -704,10 +724,71 @@ private fun ProgramSheetWorkoutHeader(
             style = StratumThemeAccessor.typography.bodyMedium,
         )
         SheetVolumeChips(chips = chips)
-        if (onPaste != null) {
-            StratumTextButton(
-                text = stringResource(R.string.create_program_sheet_paste_here),
-                onClick = onPaste,
+    }
+}
+
+/**
+ * Dashed slot at the end of a workout's lifts while the clipboard holds a
+ * lift. Tapping pastes the held lift into this workout, same as the header
+ * text button it replaces; the row matches a collapsed lift row's height.
+ */
+@Composable
+private fun ProgramSheetPasteSlotRow(
+    liftName: String,
+    onClick: () -> Unit,
+) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    val strokeWidth = shapes.borderWidth
+    val cornerRadius = shapes.panelCorner
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s4),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .drawBehind {
+                        val stroke = strokeWidth.toPx()
+                        drawRoundRect(
+                            color = colors.borderStrong,
+                            topLeft = Offset(stroke / 2, stroke / 2),
+                            size = Size(size.width - stroke, size.height - stroke),
+                            cornerRadius = CornerRadius(cornerRadius.toPx(), cornerRadius.toPx()),
+                            style =
+                                Stroke(
+                                    width = stroke,
+                                    pathEffect =
+                                        PathEffect.dashPathEffect(
+                                            floatArrayOf(6.dp.toPx(), 4.dp.toPx()),
+                                        ),
+                                ),
+                        )
+                    }
+                    .clip(shapes.panel)
+                    .clickable(onClick = onClick)
+                    .padding(horizontal = StratumSpacing.s12),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                painter = rememberVectorPainter(Icons.Outlined.ContentPaste),
+                contentDescription = null,
+                tint = colors.accent,
+                modifier = Modifier.size(20.dp),
+            )
+            StratumText(
+                text = stringResource(R.string.create_program_sheet_paste_lift, liftName),
+                style = StratumThemeAccessor.typography.bodyLarge,
+                color = colors.accent,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

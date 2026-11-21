@@ -15,6 +15,9 @@ internal sealed interface ProgramSheetRow {
 
     data class Lift(override val dayId: String, val workoutLiftId: String) : ProgramSheetRow
 
+    /** Paste target at the end of a workout's lifts while the clipboard holds a lift. */
+    data class PasteSlot(override val dayId: String) : ProgramSheetRow
+
     data class Rest(override val dayId: String) : ProgramSheetRow
 }
 
@@ -39,7 +42,10 @@ internal fun expandedAfterSheetRemoval(
 
 internal enum class ProgramSheetLiftStep { Previous, Next }
 
-internal fun programSheetRows(days: List<CreateProgramDayUi>): List<ProgramSheetRow> =
+internal fun programSheetRows(
+    days: List<CreateProgramDayUi>,
+    clipboardActive: Boolean = false,
+): List<ProgramSheetRow> =
     buildList {
         for (day in days) {
             val edit = day.editState
@@ -50,6 +56,9 @@ internal fun programSheetRows(days: List<CreateProgramDayUi>): List<ProgramSheet
                 add(ProgramSheetRow.ColumnHeader(day.id))
                 for (lift in edit.lifts) {
                     add(ProgramSheetRow.Lift(dayId = day.id, workoutLiftId = lift.workoutLiftId))
+                }
+                if (clipboardActive) {
+                    add(ProgramSheetRow.PasteSlot(day.id))
                 }
             }
         }

@@ -40,6 +40,28 @@ class ProgramSheetRowsTest {
     }
 
     @Test
+    @DisplayName("an active clipboard adds a paste slot after each workout's lifts and never on a rest day")
+    fun pasteSlotsFollowEachWorkoutWhenClipboardActive() {
+        val rows = programSheetRows(daysWithRestBetweenWorkouts(), clipboardActive = true)
+
+        assertEquals(
+            listOf(
+                ProgramSheetRow.WorkoutHeader(DAY_A),
+                ProgramSheetRow.ColumnHeader(DAY_A),
+                ProgramSheetRow.Lift(DAY_A, LIFT_A1),
+                ProgramSheetRow.Lift(DAY_A, LIFT_A2),
+                ProgramSheetRow.PasteSlot(DAY_A),
+                ProgramSheetRow.Rest(DAY_REST),
+                ProgramSheetRow.WorkoutHeader(DAY_B),
+                ProgramSheetRow.ColumnHeader(DAY_B),
+                ProgramSheetRow.Lift(DAY_B, LIFT_B),
+                ProgramSheetRow.PasteSlot(DAY_B),
+            ),
+            rows,
+        )
+    }
+
+    @Test
     @DisplayName("a fully visible sheet keeps the latched later day")
     fun followKeepsLatchedDayWhenEveryRowIsVisible() {
         val rows = programSheetRows(daysWithRestBetweenWorkouts())
