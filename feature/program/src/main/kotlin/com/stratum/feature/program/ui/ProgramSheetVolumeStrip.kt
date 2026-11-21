@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -26,9 +27,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumBottomSheet
@@ -114,6 +119,37 @@ internal fun ProgramSheetVolumePivotTable(
     val vertical = rememberScrollState()
     val muscleHeader = stringResource(R.string.edit_workout_volume_title)
     val programHeader = stringResource(R.string.edit_workout_volume_scope_program)
+    val totalLabel = stringResource(R.string.create_program_sheet_volume_total)
+    val headerLabels = remember(pivot.columns, programHeader) {
+        buildList {
+            for (column in pivot.columns) {
+                add(column.workoutName)
+            }
+            add(programHeader)
+        }
+    }
+    val columnWidths = rememberPivotColumnWidths(headerLabels)
+    val layout =
+        remember(pivot, columnWidths, programHeader) {
+            buildList {
+                pivot.columns.forEachIndexed { index, column ->
+                    add(
+                        PivotColumn(
+                            header = column.workoutName,
+                            width = columnWidths[index],
+                            total = column.total,
+                        ),
+                    )
+                }
+                add(
+                    PivotColumn(
+                        header = programHeader,
+                        width = columnWidths[pivot.columns.size],
+                        total = pivot.cornerTotal,
+                    ),
+                )
+            }
+        }
     val tableHeight = LocalConfiguration.current.screenHeightDp.dp * PIVOT_TABLE_HEIGHT_FRACTION
     Row(
         modifier =
@@ -132,12 +168,12 @@ internal fun ProgramSheetVolumePivotTable(
                         .clipToBounds(),
             ) {
                 Column(modifier = Modifier.offset { IntOffset(x = 0, y = -vertical.value) }) {
-                    pivot.rows.forEach { row ->
+                    for (row in pivot.rows) {
                         VolumeNameCell(text = row.muscleName, header = false)
                     }
                 }
             }
-            VolumeNameCell(text = "", header = true)
+            VolumeNameCell(text = totalLabel, header = true, emphasize = true, totals = true)
         }
         Column(
             modifier =
@@ -147,15 +183,15 @@ internal fun ProgramSheetVolumePivotTable(
                     .horizontalScroll(horizontal),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                pivot.columns.forEach { column ->
+                for (column in layout) {
                     VolumeNameCell(
-                        text = column.workoutName,
+                        text = column.header,
                         header = true,
                         centered = true,
-                        countWidth = true,
+                        width = column.width,
+                        overflow = TextOverflow.Clip,
                     )
                 }
-                VolumeNameCell(text = programHeader, header = true, centered = true, countWidth = true)
             }
             Column(
                 modifier =
@@ -163,17 +199,54 @@ internal fun ProgramSheetVolumePivotTable(
                         .weight(1f)
                         .verticalScroll(vertical),
             ) {
-                pivot.rows.forEach { row ->
+                for (row in pivot.rows) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        row.cells.forEach { cell -> VolumeCountCell(cell) }
-                        VolumeCountCell(row.programTotal)
+                        val values = row.cells + row.programTotal
+                        for ((column, value) in layout.zip(values)) {
+                            VolumeCountCell(sets = value, width = column.width)
+                        }
                     }
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                pivot.columns.forEach { column -> VolumeCountCell(column.total) }
-                VolumeCountCell(pivot.cornerTotal)
+                for (column in layout) {
+                    VolumeCountCell(
+                        sets = column.total,
+                        width = column.width,
+                        emphasize = true,
+                        totals = true,
+                    )
+                }
             }
+        }
+    }
+}
+
+/**
+ * Workout columns are at least as wide as their header text, and at least
+ * [VolumeCountMinWidth]. The muscle column stays pinned. The value columns scroll.
+ */
+@Composable
+private fun rememberPivotColumnWidths(headers: List<String>): List<Dp> {
+    val style = StratumThemeAccessor.typography.sectionLabel
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val padding = StratumSpacing.s8 * 2 + StratumSpacing.s8
+    return remember(headers, style, density, padding) {
+        headers.map { header ->
+            val textWidth =
+                with(density) {
+                    measurer
+                        .measure(
+                            text = header,
+                            style = style,
+                            maxLines = 1,
+                            softWrap = false,
+                        ).size
+                        .width
+                        .toDp()
+                }
+            maxOf(textWidth + padding, VolumeCountMinWidth)
         }
     }
 }
@@ -243,52 +316,102 @@ private fun SheetVolumeChip(
     }
 }
 
+/** One pivot value column: header label, measured width, and column total. */
+private data class PivotColumn(
+    val header: String,
+    val width: Dp,
+    val total: Double,
+)
+
+/**
+ * The shared pivot cell shell: fixed row height, the totals rule on totals
+ * rows, the bottom hairline, and the cell padding. Name and count cells
+ * differ only in content and alignment.
+ */
+@Composable
+private fun VolumeCellBox(
+    width: Dp,
+    totals: Boolean,
+    contentAlignment: Alignment,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    var cellModifier =
+        Modifier
+            .width(width)
+            .height(VolumeRowHeight)
+    if (totals) {
+        cellModifier =
+            cellModifier.sheetRule(
+                color = StratumThemeAccessor.colors.borderStrong,
+                top = true,
+            )
+    }
+    Box(
+        modifier =
+            cellModifier
+                .sheetHairline()
+                .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
+        contentAlignment = contentAlignment,
+        content = content,
+    )
+}
+
 @Composable
 private fun VolumeNameCell(
     text: String,
     header: Boolean,
     centered: Boolean = false,
-    countWidth: Boolean = false,
+    width: Dp = VolumeNameMinWidth,
+    overflow: TextOverflow = TextOverflow.Ellipsis,
+    emphasize: Boolean = false,
+    totals: Boolean = false,
 ) {
-    Box(
-        modifier =
-            Modifier
-                .width(if (countWidth) VolumeCountMinWidth else VolumeNameMinWidth)
-                .height(VolumeRowHeight)
-                .sheetHairline()
-                .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
+    VolumeCellBox(
+        width = width,
+        totals = totals,
         contentAlignment = if (centered) Alignment.Center else Alignment.CenterStart,
     ) {
+        val label = StratumThemeAccessor.typography.sectionLabel
         StratumText(
             text = text,
-            muted = header,
+            muted = header && !emphasize,
             style =
-                if (header) {
-                    StratumThemeAccessor.typography.sectionLabel
-                } else {
-                    StratumThemeAccessor.typography.bodyMedium
+                when {
+                    emphasize -> label.copy(fontWeight = FontWeight.Bold)
+                    header -> label
+                    else -> StratumThemeAccessor.typography.bodyMedium
                 },
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+            overflow = overflow,
             textAlign = if (centered) TextAlign.Center else TextAlign.Start,
         )
     }
 }
 
 @Composable
-private fun VolumeCountCell(sets: Double) {
-    Box(
-        modifier =
-            Modifier
-                .width(VolumeCountMinWidth)
-                .height(VolumeRowHeight)
-                .sheetHairline()
-                .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
+private fun VolumeCountCell(
+    sets: Double,
+    width: Dp,
+    emphasize: Boolean = false,
+    totals: Boolean = false,
+) {
+    val colors = StratumThemeAccessor.colors
+    var style =
+        StratumThemeAccessor.typography.sectionLabel.copy(
+            fontFeatureSettings = TABULAR_FIGURES,
+            fontWeight = if (emphasize) FontWeight.Bold else FontWeight.Medium,
+        )
+    if (sets == 0.0) {
+        style = style.copy(color = colors.textMuted.copy(alpha = ZERO_CELL_ALPHA))
+    }
+    VolumeCellBox(
+        width = width,
+        totals = totals,
         contentAlignment = Alignment.Center,
     ) {
         StratumNumber(
             text = formatSheetSetCount(sets),
-            style = StratumThemeAccessor.typography.sectionLabel.copy(fontFeatureSettings = TABULAR_FIGURES),
+            style = style,
             maxLines = 1,
             textAlign = TextAlign.Center,
         )
@@ -296,6 +419,7 @@ private fun VolumeCountCell(sets: Double) {
 }
 
 private const val TABULAR_FIGURES = "tnum"
+private const val ZERO_CELL_ALPHA = 0.4f
 private const val PIVOT_TABLE_HEIGHT_FRACTION = 0.55f
 private val VolumeRowHeight = StratumSpacing.s32
 private val VolumeNameMinWidth = StratumSpacing.s64 + StratumSpacing.s32
