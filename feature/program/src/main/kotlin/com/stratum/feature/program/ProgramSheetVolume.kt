@@ -124,18 +124,16 @@ internal data class InspectorLiftContributionRow(
 /** The selected lift's contribution block: its credits against program totals. */
 internal data class InspectorLiftContribution(
     val rows: List<InspectorLiftContributionRow>,
-    val workoutSetTotal: Int,
 )
 
 /**
  * Pairs each of the lift's muscle credits with that muscle's program total
- * from the [dashboard] model, plus the owning workout's set total. A credited
- * muscle missing from the dashboard falls back to its own credit.
+ * from the [dashboard] model. A credited muscle missing from the dashboard
+ * falls back to its own credit.
  */
 internal fun inspectorLiftContribution(
     credits: List<EditLiftMuscleCredit>,
     dashboard: ProgramSheetInspectorDashboard,
-    dayId: String,
 ): InspectorLiftContribution {
     val totals = dashboard.muscles.associate { muscle -> muscle.muscleName to muscle.sets }
     return InspectorLiftContribution(
@@ -148,7 +146,6 @@ internal fun inspectorLiftContribution(
                     programSets = totals[credit.muscleName] ?: credit.sets,
                 )
             },
-        workoutSetTotal = dashboard.workouts.firstOrNull { workout -> workout.dayId == dayId }?.setTotal ?: 0,
     )
 }
 

@@ -134,7 +134,6 @@
     <string name="create_program_sheet_primary">Primary</string>
     <string name="create_program_sheet_secondary">Secondary</string>
     <string name="create_program_sheet_program_totals">Program totals</string>
-    <string name="create_program_sheet_workout_set_total">%1$s total</string>
     <string name="create_program_sheet_delete">Delete</string>
     <string name="create_program_sheet_added_set">Added 1 set to each selected lift.</string>
     <string name="create_program_sheet_removed_set">Removed 1 set.</string>

@@ -251,25 +251,23 @@ private fun ProgramSheetInspectorLift(
             onRirClick = onRirClick,
             onShowProgressionSchemeInfo = onShowProgressionSchemeInfo,
         )
-        InspectorLiftContributionBlock(lift = lift, workoutName = day.name, dashboard = dashboard, dayId = day.id)
+        InspectorLiftContributionBlock(lift = lift, dashboard = dashboard)
         InspectorLiftMoveTo(days = state.days, currentDayId = day.id, onMoveLiftTo = onMoveLiftTo)
     }
 }
 
-/** The mockup's contribution block: labeled credits, program totals, workout total. */
+/** The mockup's contribution block: labeled credits against program totals. */
 @Composable
 private fun InspectorLiftContributionBlock(
     lift: EditLiftState,
-    workoutName: String,
     dashboard: ProgramSheetInspectorDashboard,
-    dayId: String,
 ) {
     if (lift.muscleCredits.isEmpty()) return
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
     val contribution =
-        remember(lift.muscleCredits, dashboard, dayId) {
-            inspectorLiftContribution(credits = lift.muscleCredits, dashboard = dashboard, dayId = dayId)
+        remember(lift.muscleCredits, dashboard) {
+            inspectorLiftContribution(credits = lift.muscleCredits, dashboard = dashboard)
         }
     Column(
         modifier =
@@ -317,24 +315,6 @@ private fun InspectorLiftContributionBlock(
                 contribution.rows.joinToString(separator = " · ") { row ->
                     "${row.muscleName} ${formatSheetSetCount(row.programSets)}"
                 },
-        )
-        Spacer(modifier = Modifier.height(StratumSpacing.s8))
-        StratumText(
-            text =
-                stringResource(
-                    R.string.create_program_sheet_workout_set_total,
-                    workoutName,
-                ),
-            style = StratumThemeAccessor.typography.labelLarge,
-            muted = true,
-        )
-        StratumText(
-            text =
-                pluralStringResource(
-                    R.plurals.create_program_sheet_set_total,
-                    contribution.workoutSetTotal,
-                    contribution.workoutSetTotal,
-                ),
         )
     }
 }

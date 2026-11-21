@@ -389,7 +389,7 @@ class ProgramSheetVolumeTest {
         val dashboard = programSheetInspectorDashboard(programSheetMetricsFromEditorDays(days), days)
         val credits = creditedBench(setCount = 3)
 
-        val contribution = inspectorLiftContribution(credits = credits, dashboard = dashboard, dayId = DAY_A)
+        val contribution = inspectorLiftContribution(credits = credits, dashboard = dashboard)
 
         val chestTotal = dashboard.muscles.first { muscle -> muscle.muscleName == MuscleGroup.Chest.toVolumeDisplayName() }.sets
         val chestRow = contribution.rows.first { row -> row.muscleName == MuscleGroup.Chest.toVolumeDisplayName() }
@@ -399,10 +399,6 @@ class ProgramSheetVolumeTest {
         val tricepsRow = contribution.rows.first { row -> row.muscleName == MuscleGroup.Tricep.toVolumeDisplayName() }
         assertFalse(tricepsRow.primary)
         assertEquals(1.5, tricepsRow.creditSets, 0.0)
-        assertEquals(
-            dashboard.workouts.first { workout -> workout.dayId == DAY_A }.setTotal,
-            contribution.workoutSetTotal,
-        )
 
         val unknown =
             inspectorLiftContribution(
@@ -415,7 +411,6 @@ class ProgramSheetVolumeTest {
                         ),
                     ),
                 dashboard = dashboard,
-                dayId = DAY_A,
             )
         assertEquals(2.0, unknown.rows.single().programSets, 0.0)
     }
