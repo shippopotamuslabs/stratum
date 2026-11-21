@@ -20,6 +20,18 @@ private fun CheckInSubjectiveNeoPreview() {
 
 @PreviewLightDark
 @Composable
+private fun CheckInSubjectiveReadyTonalPreview() {
+    CheckInPreviewContent(family = StratumThemeId.Tonal, state = subjectiveReadyState())
+}
+
+@PreviewLightDark
+@Composable
+private fun CheckInSubjectiveReadyNeoPreview() {
+    CheckInPreviewContent(family = StratumThemeId.NeoBrutalist, state = subjectiveReadyState())
+}
+
+@PreviewLightDark
+@Composable
 private fun CheckInLocalizedMusclesTonalPreview() {
     CheckInPreviewContent(family = StratumThemeId.Tonal, state = subjectiveLocalizedState())
 }
@@ -112,6 +124,20 @@ internal fun subjectiveBaseState(): CheckInUiState =
         phase = CheckInPhase.Subjective,
         overallRecovery = RecoverySignalUi.Good,
         hasLocalizedIssues = null,
+        availableMuscles = previewMuscles(),
+    )
+
+/**
+ * The working state from Sean's STR-309 device report: recovery answered and
+ * localized answered no, so the top-bar Next action is enabled. The base state
+ * leaves localized unanswered (Next disabled); this state pins the enabled one.
+ */
+internal fun subjectiveReadyState(): CheckInUiState =
+    CheckInUiState(
+        isOpen = true,
+        phase = CheckInPhase.Subjective,
+        overallRecovery = RecoverySignalUi.Good,
+        hasLocalizedIssues = false,
         availableMuscles = previewMuscles(),
     )
 

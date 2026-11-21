@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -29,7 +28,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumBottomSheet
-import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumFilterChip
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumDetailScaffold
@@ -37,13 +35,14 @@ import com.stratum.core.ui.component.StratumPillToggle
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.R
 
 /**
  * Full-screen two-step coach check-in wizard (recovery → recommendations).
- * Mirrors onboarding chrome: top step indicator + bottom primary action bar.
+ * Mirrors onboarding chrome: top step indicator + top-bar primary action.
  */
 @Composable
 fun CheckInScreen(
@@ -67,7 +66,14 @@ fun CheckInScreen(
     // Glass (§12.8, STR-158): this screen composes inside the Programs tab, so
     // the tab shell's glass host reaches it with no hosting of its own. Under
     // glass the top bar (with its step indicator) overlays and the scrollable
-    // column carries the top clearance; the bottom action bar is unchanged.
+    // column carries the top clearance.
+    //
+    // The primary action lives in the top bar, not a scaffold bottom bar
+    // (STR-309): the tab shell's glass navigation bar owns the screen's bottom
+    // edge, so a bottom bar here collides with it and is covered on device.
+    // Preview goldens have no shell bar, which is why the collision shipped
+    // unseen. The scrollable instead pads its end by the glass bottom
+    // clearance so content scrolls clear of the nav bar.
     StratumDetailScaffold(
         modifier = modifier,
         topBarBottomSlotHeight = CHECKIN_STEP_SLOT_HEIGHT,
@@ -80,6 +86,22 @@ fun CheckInScreen(
                         contentDescription = stringResource(R.string.checkin_back),
                     )
                 },
+                actions = {
+                    StratumTopBarTextButton(
+                        text =
+                            when {
+                                state.phase == CheckInPhase.Subjective && state.isEvaluating ->
+                                    stringResource(R.string.checkin_evaluating)
+                                state.phase == CheckInPhase.Recommendations && state.isApplying ->
+                                    stringResource(R.string.checkin_applying)
+                                state.phase == CheckInPhase.Recommendations ->
+                                    stringResource(R.string.checkin_apply)
+                                else -> stringResource(R.string.checkin_next)
+                            },
+                        onClick = onNext,
+                        enabled = state.primaryActionEnabled,
+                    )
+                },
                 bottom = {
                     CheckInStepIndicator(
                         stepCount = state.stepCount,
@@ -88,32 +110,6 @@ fun CheckInScreen(
                 },
             )
         },
-        bottomBar = {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(StratumThemeAccessor.colors.surfaceBase)
-                        .navigationBarsPadding()
-                        .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
-            ) {
-                StratumButton(
-                    text =
-                        when {
-                            state.phase == CheckInPhase.Subjective && state.isEvaluating ->
-                                stringResource(R.string.checkin_evaluating)
-                            state.phase == CheckInPhase.Recommendations && state.isApplying ->
-                                stringResource(R.string.checkin_applying)
-                            state.phase == CheckInPhase.Recommendations ->
-                                stringResource(R.string.checkin_apply)
-                            else -> stringResource(R.string.checkin_next)
-                        },
-                    onClick = onNext,
-                    enabled = state.primaryActionEnabled,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        },
     ) { chrome ->
         Column(
             modifier =
@@ -121,7 +117,10 @@ fun CheckInScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = StratumSpacing.s16)
-                    .padding(top = StratumSpacing.s16 + chrome.top, bottom = StratumSpacing.s16),
+                    .padding(
+                        top = StratumSpacing.s16 + chrome.top,
+                        bottom = StratumSpacing.s16 + chrome.bottom,
+                    ),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             when (state.phase) {
