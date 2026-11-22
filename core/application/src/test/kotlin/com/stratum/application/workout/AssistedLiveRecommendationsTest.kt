@@ -12,6 +12,7 @@ import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.importing.FatigueDecay
 import com.stratum.domain.workout.LoggedSetValue
 import com.stratum.domain.workout.RecommendationEngine
 import com.stratum.domain.workout.RenderedSet
@@ -185,6 +186,47 @@ class AssistedLiveRecommendationsTest {
         )
 
         assertEquals(-40.0, recommendations[SetSlotId.Template(LiftSetId("ls-as-2"))]?.weight?.amount)
+    }
+
+    @Test
+    @DisplayName("Shown reps and RIR at a changed assistance re-anchor the next set on the new performance")
+    fun `changed assistance at shown reps re-anchors reps`() {
+        // A fractional slope separates the two geometries: stable first-set
+        // geometry and re-anchored geometry round to different reps.
+        val fatigue = mapOf(liftId to FatigueDecay(slope = -2.5, intercept = null))
+        val firstPass = useCase(
+            assistedThreeSets(logged = mapOf(0 to loggedSet(0, 50.0, 8, 2))),
+            mapOf(liftId to assistedCatalogLift()),
+            fatigueByLiftId = fatigue,
+            priorRecommendations = emptyMap(),
+        )
+        val shownSet2 = firstPass.getValue(SetSlotId.Template(LiftSetId("ls-as-1")))
+        // Capacity 10, slope -2.5: set 2 at RIR 0 is 7.5, rounding to 8, so 6 at goal.
+        assertEquals(-50.0, shownSet2.weight.amount)
+        assertEquals(6, shownSet2.reps)
+
+        // Set 2 logged at exactly the shown reps and RIR, but 40 lb assistance
+        // instead of 50: the load changed, so the log is not exact.
+        val rendered = assistedThreeSets(
+            logged = mapOf(
+                0 to loggedSet(0, 50.0, 8, 2),
+                1 to loggedSet(1, 40.0, shownSet2.reps, 2),
+            ),
+        )
+        val recommendations = useCase(
+            rendered,
+            mapOf(liftId to assistedCatalogLift()),
+            fatigueByLiftId = fatigue,
+            priorRecommendations = firstPass,
+        )
+
+        val set3 = recommendations[SetSlotId.Template(LiftSetId("ls-as-2"))]
+        assertNotNull(set3)
+        assertEquals(-40.0, set3!!.weight.amount)
+        // Re-anchored on set 2 (capacity 6 + 2 = 8): 8 - 2.5 = 5.5, rounding to
+        // 6 at RIR 0, so 4 at goal. Stable first-set geometry would project
+        // 10 - 5 = 5 at RIR 0, so 3.
+        assertEquals(4, set3.reps)
     }
 
     @Test

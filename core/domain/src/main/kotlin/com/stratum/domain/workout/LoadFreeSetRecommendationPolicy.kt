@@ -2,6 +2,7 @@ package com.stratum.domain.workout
 
 import com.stratum.domain.importing.FatigueDecay
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.workout.bodyweight.BodyweightRepProjection
 import javax.inject.Inject
 
@@ -42,6 +43,7 @@ class LoadFreeSetRecommendationPolicy @Inject constructor() {
             fatigue = fatigue,
             priorRecommendations = priorRecommendations,
             carriedWeight = { anchor -> Weight(0.0, anchor.weight.unit) },
+            isExact = ::isExactLoadFreePrescription,
         )
 
     /**
@@ -72,13 +74,16 @@ class LoadFreeSetRecommendationPolicy @Inject constructor() {
             fatigue = fatigue,
             priorRecommendations = priorRecommendations,
             carriedWeight = { anchor -> anchor.weight },
+            isExact = ::isExactAssistedPrescription,
         )
 
     /**
      * Shared load-free geometry for bodyweight and assisted: an
      * exact-prescription log keeps stable block geometry (no rep jumping);
      * anything else re-anchors on the just-performed set. [carriedWeight]
-     * picks the weight each projection carries from the performance anchor.
+     * picks the weight each projection carries from the performance anchor;
+     * [isExact] decides what counts as an exact log (assisted also requires
+     * the performed assistance to match the shown assistance).
      */
     private fun recommendLoadFree(
         lastPerformedSet: RenderedSet,
@@ -89,6 +94,7 @@ class LoadFreeSetRecommendationPolicy @Inject constructor() {
         fatigue: FatigueDecay,
         priorRecommendations: Map<SetSlotId, LiveSetRecommendation>,
         carriedWeight: (LoggedSetValue) -> Weight,
+        isExact: (RenderedSet, LoggedSetValue, Map<SetSlotId, LiveSetRecommendation>) -> Boolean,
     ): Map<SetSlotId, LiveSetRecommendation> {
         val block =
             resolveStraightBlock(
@@ -99,7 +105,7 @@ class LoadFreeSetRecommendationPolicy @Inject constructor() {
                 straightUpcoming = straightUpcoming,
             ) ?: return emptyMap()
         val geometry =
-            if (isExactBodyweightPrescription(lastPerformedSet, lastPerformed, priorRecommendations)) {
+            if (isExact(lastPerformedSet, lastPerformed, priorRecommendations)) {
                 stableBlockGeometry(setsByPosition)
                     ?: FatigueGeometry(
                         block.performanceLogged,
@@ -150,9 +156,9 @@ class LoadFreeSetRecommendationPolicy @Inject constructor() {
         )
     }
 
-    /** Exact-prescription check for bodyweight: reps + RIR, no weight machinery. */
+    /** Exact-prescription check on reps + RIR alone: the bodyweight standard. */
 
-    private fun isExactBodyweightPrescription(
+    private fun isExactLoadFreePrescription(
         lastPerformedSet: RenderedSet,
         lastPerformed: LoggedSetValue,
         priorRecommendations: Map<SetSlotId, LiveSetRecommendation>,
@@ -168,6 +174,31 @@ class LoadFreeSetRecommendationPolicy @Inject constructor() {
             logged = lastPerformed,
             priorRecommendations = priorRecommendations,
         )
+    }
+
+    /**
+     * Exact check for assisted: reps + RIR as in [isExactLoadFreePrescription],
+     * plus the performed assistance must equal the shown assistance (the prior
+     * overlay's carried weight, else the snapshot weight). Effective load is
+     * bodyweight minus assistance, so a changed assistance changes the load the
+     * rep capacity was earned at and must re-anchor the geometry, mirroring the
+     * weighted path's weight comparison. A zero shown amount means no
+     * assistance was ever shown (the first log defines it) and cannot deviate.
+     */
+    private fun isExactAssistedPrescription(
+        lastPerformedSet: RenderedSet,
+        lastPerformed: LoggedSetValue,
+        priorRecommendations: Map<SetSlotId, LiveSetRecommendation>,
+    ): Boolean {
+        if (!isExactLoadFreePrescription(lastPerformedSet, lastPerformed, priorRecommendations)) {
+            return false
+        }
+        val shown =
+            priorRecommendations[lastPerformedSet.slotId]?.weight
+                ?: lastPerformedSet.recommendedWeight
+        if (shown.amount == 0.0) return true
+        return WeightConversion.loadMagnitudeLb(lastPerformed.weight) ==
+            WeightConversion.loadMagnitudeLb(shown)
     }
 
     private fun matchesLiveOverlay(
