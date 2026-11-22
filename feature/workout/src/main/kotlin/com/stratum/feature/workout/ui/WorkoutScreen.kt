@@ -217,13 +217,13 @@ fun WorkoutScreen(
     }
 
     val scrollToLift: (String) -> Unit = { workoutLiftId ->
-        scrollListToLift(workoutLiftId, notifyTap = true)
+        scrollListToLift(workoutLiftId, true)
     }
 
     // External focus (STR-327): same scroll and primary update as a strip
     // tap, without the tap callback (the coach pane keeps its current tab).
     LaunchedEffect(focusLiftRequest) {
-        focusLiftRequest?.let { request -> scrollListToLift(request.workoutLiftId, notifyTap = false) }
+        focusLiftRequest?.let { request -> scrollListToLift(request.workoutLiftId, false) }
     }
 
     // Log only — rest timer, autoscroll, and complete sheet run after [pendingSetLogged]

@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
@@ -567,7 +568,7 @@ private fun OverviewLiftRow(
                         OverviewLiftStatus.InProgress ->
                             stringResource(R.string.workout_coach_sets_in_progress, done, lift.sets.size)
                         OverviewLiftStatus.Planned ->
-                            stringResource(R.string.workout_coach_sets_planned, lift.sets.size)
+                            pluralStringResource(R.plurals.workout_coach_sets_planned, lift.sets.size, lift.sets.size)
                     },
                 muted = true,
                 style = StratumThemeAccessor.typography.labelMedium,
