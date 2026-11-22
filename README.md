@@ -57,9 +57,9 @@ Names to keep straight:
 
 | Area | Choice |
 |---|---|
-| Language | Kotlin 2.4.20 |
-| UI | Jetpack Compose, Compose BOM 2026.09.00, Material 3 |
-| DI | Hilt 2.60.1, KSP 2.3.12 |
+| Language | Kotlin 2.4.21 |
+| UI | Jetpack Compose, Compose BOM 2026.09.00, Material 3 1.5.0 |
+| DI | Hilt 2.60.1, KSP 2.3.14 |
 | Storage | Room 2.8.5, DataStore |
 | Async | Kotlin coroutines 1.11.0, Flow, Turbine in tests |
 | Navigation | Navigation 3 |
@@ -68,7 +68,7 @@ Names to keep straight:
 | Solver | OR-Tools CP-SAT 9.15, Python API |
 | Billing | Google Play Billing 9.1.0 |
 | Health | Health Connect client |
-| Build | Gradle 9.8.0 (wrapper), Android Gradle Plugin 9.4.1 |
+| Build | Gradle 9.8.0 (wrapper), Android Gradle Plugin 9.5.2 |
 | Tests | JUnit 5, JUnit 4 for screenshot tests, Robolectric 4.17, Turbine |
 | Static analysis | detekt 1.23.8 with the repo rules in `:detekt-rules`, Android lint |
 

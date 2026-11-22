@@ -150,8 +150,8 @@ fun StratumTheme(
             shapes = materialShapes(spec),
             typography = spec.typography.material,
             // §12.5: M3 Expressive spring physics are the motion default
-            // (material3 1.5.0-beta01 pin; the scheme is internal in the
-            // BOM's managed 1.4.0). Stratum's own specs: StratumMotion.
+            // (material3 1.5.0 pin; MotionScheme.expressive() is public there).
+            // Stratum's own specs: StratumMotion.
             motionScheme = MotionScheme.expressive(),
             content = content,
         )

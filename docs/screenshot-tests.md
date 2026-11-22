@@ -80,6 +80,8 @@ Diff reports land in `{module}/build/reports/screenshotTest/preview/debug/index.
   keep the dialog window; only the body is shared.
 - The root build keeps screenshot `Test` tasks on the JUnit4 runner (the plugin's
   generated tests are JUnit4); everything else stays on the JUnit Platform.
-- Standalone-plugin setup is the documented path at AGP 9.4.1. Google recommends
-  the AGP-test-suites setup from AGP 9.5.0-alpha03 + plugin alpha16 — revisit when
-  the project moves AGP past that line.
+- Standalone-plugin setup stays on AGP 9.5.2. Plugin 0.0.1-alpha16 is the newest
+  publish (no stable exists) and still documents AGP 9.0 or higher. Google also
+  offers an AGP test-suites setup from AGP 9.5.0-alpha03 that replaces this
+  plugin. STR-313 kept the plugin because the bump is toolchain-only and the
+  existing source-set tasks still validate.

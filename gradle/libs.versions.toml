@@ -1,44 +1,72 @@
+# STR-313 freshness pass (2026-11-22). Each pin is the latest stable unless noted.
+# Gradle wrapper stays at 9.8.0: AGP 9.5.2 requires Gradle 9.6.0, so 9.8.0 already
+# satisfies it. Latest Gradle is 9.9.2 and is not required. See gradle-wrapper.properties.
+#
+# Left off latest stable on purpose:
+# - screenshot: no stable publish exists. 0.0.1-alpha16 is the newest artifact and
+#   the version the AGP 9.5 screenshot docs still name. Standalone plugin kept;
+#   the AGP test-suites migration replaces that setup and is out of this bump.
+# - androidxCredentials: latest stable is 1.6.0. 1.7.0-alpha03 is already what the
+#   sign-in client compiles against. Downgrading would be a library change, not a
+#   freshness bump.
+# - healthConnect: latest stable is 1.1.0. 1.2.0-alpha06 is already what the
+#   Health Connect client compiles against. Same reason as credentials.
+# - vico: 3.3.1 is the latest stable. 3.4.0-next.1 is a pre-release.
+# - robolectric: 4.17. 4.18 removed @TextLayoutMode and TextLayoutModeConfigurer.
+#   tech.apter junit5-robolectric 0.9.0 (latest) still loads that class, so the
+#   JUnit 5 suites fail with NoClassDefFoundError. 0.9.0 is the latest apter pin.
+# - haze: 2.0.1. 2.1.0 changes Glass rendering and breaks the lift-config glass
+#   screenshot goldens. This bump is toolchain-only, so the visual change stays out.
+# - kotlin: 2.4.21 is the latest stable. 2.5.0 is still RC (planned December 2026).
+#   AGP 9.5 pairs with the current stable Kotlin line (Studio's 9.5 sample is 2.4.x).
+# - composeBom: 2026.09.00. 2026.11.01 requires compileSdk 37.1; AGP 9.5.2 tops out
+#   at API 37.0. material3 stays explicitly at 1.5.0 so MotionScheme.expressive()
+#   stays public (the 2026.09.00 BOM still manages material3 1.4.0).
 [versions]
-agp = "9.4.1"
-coreKtx = "1.19.0"
+agp = "9.5.2"
+coreKtx = "1.19.1"
 detekt = "1.23.8"
 junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
-lifecycleRuntimeKtx = "2.11.0"
-lifecycle = "2.11.0"
+lifecycleRuntimeKtx = "2.11.1"
+lifecycle = "2.11.1"
 activityCompose = "1.13.0"
-kotlin = "2.4.20"
+kotlin = "2.4.21"
+# 2026.11.01 is newer, and its Compose 1.13 artifacts require compileSdk 37.1.
+# AGP 9.5.2's maximum API level is 37.0, so this is the latest BOM that still
+# builds here. material3 is overridden below because this BOM still manages 1.4.0,
+# where MotionScheme.expressive() is not public.
 composeBom = "2026.09.00"
-material3 = "1.5.0-beta01"
+material3 = "1.5.0"
 coroutines = "1.11.0"
 room = "2.8.5"
 hilt = "2.60.1"
 hiltNavigationCompose = "1.4.0"
-ksp = "2.3.12"
-navigation3 = "1.1.7"
+ksp = "2.3.14"
+navigation3 = "1.2.2"
 haze = "2.0.1"
-kotlinxSerializationJson = "1.11.0"
+kotlinxSerializationJson = "1.13.0"
 junitJupiter = "6.1.3"
-mockk = "1.14.11"
+mockk = "1.14.12"
 robolectric = "4.17"
 
 apterJunit5Robolectric = "0.9.0"
 androidxTestCore = "1.7.0"
 turbine = "1.2.1"
-firebaseBom = "34.19.0"
+firebaseBom = "35.2.0"
 androidxCredentials = "1.7.0-alpha03"
 googleid = "1.2.1"
-googleServices = "4.5.0"
+googleServices = "4.6.0"
 firebaseCrashlyticsPlugin = "3.0.8"
 firebasePerfPlugin = "2.0.2"
 coil = "3.6.3"
-androidxDataStore = "1.2.1"
+androidxDataStore = "1.3.0"
 vico = "3.3.1"
-work = "2.11.2"
+work = "2.12.0"
 hiltAndroidx = "1.4.0"
 shadow = "9.6.1"
-firebaseAdmin = "9.10.0"
+firebaseAdmin = "9.12.0"
 healthConnect = "1.2.0-alpha06"
 window = "1.5.1"
 billing = "9.1.0"
