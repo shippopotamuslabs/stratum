@@ -45,6 +45,23 @@ class WorkoutCoachTodayTest {
     }
 
     @Test
+    @DisplayName("a bodyweight set logged at zero weight leaves the top set empty")
+    fun todayBestsBodyweightHasNoTopSet() {
+        val bests =
+            coachTodayBests(
+                listOf(
+                    set(isComplete = true, loggedWeightAmount = 0.0, loggedReps = 12),
+                    set(isComplete = true, loggedWeightAmount = 0.0, loggedReps = 9),
+                ),
+            )
+
+        assertNull(bests.topSetWeight)
+        assertNull(bests.estimatedOneRepMax)
+        assertEquals(21, bests.totalReps)
+        assertTrue(bests.hasData())
+    }
+
+    @Test
     @DisplayName("the recommendation set is the first incomplete set with a recommendation")
     fun recommendationTargetsNextSet() {
         val lift =

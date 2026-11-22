@@ -92,36 +92,42 @@ internal data class CoachLiftBests(
     val estimatedOneRepMax: Double?,
 )
 
-internal fun coachLiftBests(sets: List<RenderedSetUi>): CoachLiftBests {
-    val performed = sets.filter { set -> set.previousReps != null }
-    val topSet = performed.mapNotNull { set -> set.previousWeightAmount }.maxOrNull()
-    val totalReps = performed.sumOf { set -> set.previousReps ?: 0 }
-    val oneRepMax =
-        performed
-            .mapNotNull { set ->
-                val weight = set.previousWeightAmount ?: return@mapNotNull null
-                val reps = set.previousReps ?: return@mapNotNull null
-                if (weight <= 0.0 || reps <= 0) null else weight * (1.0 + reps / 30.0)
-            }.maxOrNull()
-    return CoachLiftBests(topSetWeight = topSet, totalReps = totalReps, estimatedOneRepMax = oneRepMax)
-}
+internal fun coachLiftBests(sets: List<RenderedSetUi>): CoachLiftBests =
+    coachBestsOf(
+        sets.mapNotNull { set ->
+            val reps = set.previousReps ?: return@mapNotNull null
+            set.previousWeightAmount to reps
+        },
+    )
 
 /**
  * Today's bests for one lift, from its completed sets (STR-328). Logged
  * amounts arrive as display magnitudes from the mapper, so assisted sets
- * contribute their assistance amount. Mirrors [coachLiftBests] so the Coach
- * pane can fill in from the session in progress when a lift has no history.
+ * contribute their assistance amount.
  */
-internal fun coachTodayBests(sets: List<RenderedSetUi>): CoachLiftBests {
-    val performed = sets.filter { set -> set.isComplete && set.loggedReps != null }
-    val topSet = performed.mapNotNull { set -> set.loggedWeightAmount }.maxOrNull()
-    val totalReps = performed.sumOf { set -> set.loggedReps ?: 0 }
+internal fun coachTodayBests(sets: List<RenderedSetUi>): CoachLiftBests =
+    coachBestsOf(
+        sets.mapNotNull { set ->
+            if (!set.isComplete) return@mapNotNull null
+            val reps = set.loggedReps ?: return@mapNotNull null
+            set.loggedWeightAmount to reps
+        },
+    )
+
+/**
+ * Shared bests derivation over performed (weight, reps) pairs. A weight only
+ * counts when it is positive: bodyweight sets log 0.0 with the weight column
+ * hidden, and a zero top set would render as a blank amount plus the unit.
+ */
+private fun coachBestsOf(performed: List<Pair<Double?, Int>>): CoachLiftBests {
+    val topSet =
+        performed.mapNotNull { (weight, _) -> weight?.takeIf { it > 0.0 } }.maxOrNull()
+    val totalReps = performed.sumOf { (_, reps) -> reps }
     val oneRepMax =
         performed
-            .mapNotNull { set ->
-                val weight = set.loggedWeightAmount ?: return@mapNotNull null
-                val reps = set.loggedReps ?: return@mapNotNull null
-                if (weight <= 0.0 || reps <= 0) null else weight * (1.0 + reps / 30.0)
+            .mapNotNull { (weight, reps) ->
+                val w = weight ?: return@mapNotNull null
+                if (w <= 0.0 || reps <= 0) null else w * (1.0 + reps / 30.0)
             }.maxOrNull()
     return CoachLiftBests(topSetWeight = topSet, totalReps = totalReps, estimatedOneRepMax = oneRepMax)
 }
