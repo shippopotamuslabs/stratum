@@ -192,12 +192,14 @@ fun WorkoutScreen(
         }
     }
 
-    val scrollListToLift: (String, Boolean) -> Unit = { workoutLiftId, notifyTap ->
+    // Scroll core shared by strip taps and external focus: selects the
+    // lift, updates the primary lift, and animates the list to its top.
+    // Returns false when the lift is not in the list.
+    val scrollListToLift: (String) -> Boolean = { workoutLiftId ->
         val index = state.lifts.indexOfFirst { it.workoutLiftId == workoutLiftId }
         if (index >= 0) {
             selectedLiftId = workoutLiftId
             onPrimaryLiftChanged(workoutLiftId)
-            if (notifyTap) onLiftTapped(workoutLiftId)
             tabScrollJob?.cancel()
             tabScrollJob =
                 scope.launch {
@@ -213,17 +215,22 @@ fun WorkoutScreen(
                         programmaticScroll = false
                     }
                 }
+            true
+        } else {
+            false
         }
     }
 
+    // Strip and card taps also report the tap, so the route switches the
+    // coach pane to the tapped lift.
     val scrollToLift: (String) -> Unit = { workoutLiftId ->
-        scrollListToLift(workoutLiftId, true)
+        if (scrollListToLift(workoutLiftId)) onLiftTapped(workoutLiftId)
     }
 
-    // External focus (STR-327): same scroll and primary update as a strip
-    // tap, without the tap callback (the coach pane keeps its current tab).
+    // External focus (STR-327): the scroll core alone, without the tap
+    // callback, so the coach pane keeps its current tab.
     LaunchedEffect(focusLiftRequest) {
-        focusLiftRequest?.let { request -> scrollListToLift(request.workoutLiftId, false) }
+        focusLiftRequest?.let { request -> scrollListToLift(request.workoutLiftId) }
     }
 
     // Log only — rest timer, autoscroll, and complete sheet run after [pendingSetLogged]
