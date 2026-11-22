@@ -8,6 +8,7 @@
     <string name="workout_coach_rest_minus">-0:10</string>
     <string name="workout_coach_rest_plus">+0:10</string>
     <string name="workout_coach_rest_skip">Skip rest</string>
+    <string name="workout_coach_rest_remaining">Remaining</string>
     <string name="workout_coach_rest_idle">No rest running. Finish a set and the timer starts here.</string>
     <string name="workout_coach_last_session">Last session</string>
     <string name="workout_coach_today">Today</string>

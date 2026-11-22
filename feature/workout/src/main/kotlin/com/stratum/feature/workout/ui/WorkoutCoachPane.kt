@@ -660,9 +660,10 @@ private fun RestPaneBody(
     val upNext = upNextSets(state.lifts, primaryLiftId)
     Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16)) {
         if (restTimer.isActive) {
-            StratumText(
-                text = formatRestDisplay(restTimer.remainingSeconds),
-                style = StratumThemeAccessor.typography.displayLarge,
+            RestCountdownRing(
+                remainingSeconds = restTimer.remainingSeconds,
+                totalSeconds = restTimer.totalSeconds,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
             )
             upNext.firstOrNull()?.let { (lift, set) ->
                 Column(
