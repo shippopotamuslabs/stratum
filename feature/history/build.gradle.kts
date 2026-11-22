@@ -11,7 +11,9 @@ android {
     namespace = "com.stratum.feature.history"
 
     compileSdk {
-        version = release(37)
+        version = release(37) {
+            minorApiLevel = 2
+        }
     }
 
     defaultConfig {

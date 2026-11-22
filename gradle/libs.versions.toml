@@ -1,44 +1,57 @@
+# STR-313 freshness pass (2026-11-22). Each pin is the latest stable unless noted.
+#
+# Left off latest stable on purpose:
+# - screenshot: no stable publish exists. 0.0.1-alpha16 is the newest artifact.
+#   The standalone plugin stays; the AGP test-suites migration replaces that setup.
+# - androidxCredentials: latest stable is 1.6.0. 1.7.0-alpha03 is the newest publish
+#   and is what the sign-in client compiles against.
+# - healthConnect: latest stable is 1.1.0. 1.2.0-alpha06 is the newest publish and
+#   is what the Health Connect client compiles against.
+# - vico: 3.3.1 is the latest stable. 3.4.0-next.1 is a pre-release.
+# - kotlin: 2.4.21 is the latest stable. 2.5.0 is still RC.
+# - material3: explicit 1.5.0 so MotionScheme.expressive() stays public even if a
+#   future Compose BOM manages an older material3.
 [versions]
-agp = "9.4.1"
-coreKtx = "1.19.0"
+agp = "9.5.2"
+coreKtx = "1.19.1"
 detekt = "1.23.8"
 junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
-lifecycleRuntimeKtx = "2.11.0"
-lifecycle = "2.11.0"
+lifecycleRuntimeKtx = "2.11.1"
+lifecycle = "2.11.1"
 activityCompose = "1.13.0"
-kotlin = "2.4.20"
-composeBom = "2026.09.00"
-material3 = "1.5.0-beta01"
+kotlin = "2.4.21"
+composeBom = "2026.11.01"
+material3 = "1.5.0"
 coroutines = "1.11.0"
 room = "2.8.5"
 hilt = "2.60.1"
 hiltNavigationCompose = "1.4.0"
-ksp = "2.3.12"
-navigation3 = "1.1.7"
-haze = "2.0.1"
-kotlinxSerializationJson = "1.11.0"
+ksp = "2.3.14"
+navigation3 = "1.2.2"
+haze = "2.1.0"
+kotlinxSerializationJson = "1.13.0"
 junitJupiter = "6.1.3"
-mockk = "1.14.11"
-robolectric = "4.17"
+mockk = "1.14.12"
+robolectric = "4.18.1"
 
 apterJunit5Robolectric = "0.9.0"
 androidxTestCore = "1.7.0"
 turbine = "1.2.1"
-firebaseBom = "34.19.0"
+firebaseBom = "35.2.0"
 androidxCredentials = "1.7.0-alpha03"
 googleid = "1.2.1"
-googleServices = "4.5.0"
+googleServices = "4.6.0"
 firebaseCrashlyticsPlugin = "3.0.8"
 firebasePerfPlugin = "2.0.2"
 coil = "3.6.3"
-androidxDataStore = "1.2.1"
+androidxDataStore = "1.3.0"
 vico = "3.3.1"
-work = "2.11.2"
+work = "2.12.0"
 hiltAndroidx = "1.4.0"
 shadow = "9.6.1"
-firebaseAdmin = "9.10.0"
+firebaseAdmin = "9.12.0"
 healthConnect = "1.2.0-alpha06"
 window = "1.5.1"
 billing = "9.1.0"

@@ -8,8 +8,8 @@ import androidx.compose.ui.unit.Dp
 /**
  * Stratum motion tokens (§12.5). The motion default is the M3 Expressive
  * scheme itself: [StratumTheme] wires `MotionScheme.expressive()` into
- * MaterialTheme (material3 pinned at 1.5.0-beta01 in the version catalog,
- * where the scheme is public; the BOM's managed 1.4.0 keeps it internal),
+ * MaterialTheme (material3 pinned at 1.5.0 in the version catalog, where
+ * MotionScheme.expressive() is public),
  * and components read spatial/effects springs from there. These tokens
  * name only what the scheme does not expose: the button press morph's
  * specs, which the contract fixes directly (§12.2 / §12.3 / §12.7).

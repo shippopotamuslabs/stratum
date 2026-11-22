@@ -57,9 +57,9 @@ Names to keep straight:
 
 | Area | Choice |
 |---|---|
-| Language | Kotlin 2.4.20 |
-| UI | Jetpack Compose, Compose BOM 2026.09.00, Material 3 |
-| DI | Hilt 2.60.1, KSP 2.3.12 |
+| Language | Kotlin 2.4.21 |
+| UI | Jetpack Compose, Compose BOM 2026.11.01, Material 3 1.5.0 |
+| DI | Hilt 2.60.1, KSP 2.3.14 |
 | Storage | Room 2.8.5, DataStore |
 | Async | Kotlin coroutines 1.11.0, Flow, Turbine in tests |
 | Navigation | Navigation 3 |
@@ -68,15 +68,15 @@ Names to keep straight:
 | Solver | OR-Tools CP-SAT 9.15, Python API |
 | Billing | Google Play Billing 9.1.0 |
 | Health | Health Connect client |
-| Build | Gradle 9.8.0 (wrapper), Android Gradle Plugin 9.4.1 |
-| Tests | JUnit 5, JUnit 4 for screenshot tests, Robolectric 4.17, Turbine |
+| Build | Gradle 9.9.2 (wrapper), Android Gradle Plugin 9.5.2 |
+| Tests | JUnit 5, JUnit 4 for screenshot tests, Robolectric 4.18.1, Turbine |
 | Static analysis | detekt 1.23.8 with the repo rules in `:detekt-rules`, Android lint |
 
 Platform numbers, from `app/build.gradle.kts`:
 
 - `minSdk 34` (Android 14)
 - `targetSdk 37`
-- `compileSdk 37`
+- `compileSdk 37.2`
 - Java and Kotlin target: 17
 
 ## Prerequisites
@@ -84,7 +84,7 @@ Platform numbers, from `app/build.gradle.kts`:
 Install these first:
 
 - JDK 21. Gradle runs on it. The repo pins the daemon JVM in `gradle/gradle-daemon-jvm.properties`, and CI installs Temurin 21. Project code targets JVM 17.
-- Android SDK with platform `android-37.0`. CI installs it with `sdkmanager --channel=3 "platforms;android-37.0"` and falls back to the default channel. Android Studio can install the same platform from SDK Manager.
+- Android SDK with platform `android-37.2`. CI installs it with `sdkmanager "platforms;android-37.2"`. Android Studio can install the same platform from SDK Manager.
 - Android Studio, if you want the IDE path. The command line path works with the SDK alone.
 - Git.
 - Node 24 and npm, for `functions/` work only.
@@ -92,7 +92,7 @@ Install these first:
 - Docker, for image builds and image scans only.
 - Firebase CLI and `gcloud`, for deploys only. App builds need neither.
 
-The Gradle wrapper downloads Gradle 9.8.0 on first run. That first run takes a while and pulls a large dependency set.
+The Gradle wrapper downloads Gradle 9.9.2 on first run. That first run takes a while and pulls a large dependency set.
 
 ## Setup: cold clone
 
@@ -130,7 +130,7 @@ Android Studio path:
 
 1. Open the repo root as the project.
 2. Let Gradle sync finish.
-3. Install Android SDK Platform 37 if Studio asks.
+3. Install Android SDK Platform 37.2 if Studio asks.
 4. Pick the `app` run configuration.
 
 Command line path:
@@ -139,7 +139,7 @@ Command line path:
 2. Install the platform:
 
 ```bash
-sdkmanager --channel=3 "platforms;android-37.0" || sdkmanager "platforms;android-37.0"
+sdkmanager "platforms;android-37.2"
 ```
 
 ### 4. Optional: fetch the test reference examples
