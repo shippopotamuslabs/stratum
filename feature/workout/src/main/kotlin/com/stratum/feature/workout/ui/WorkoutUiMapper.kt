@@ -108,6 +108,14 @@ internal object WorkoutUiMapper {
                             previousReps = set.previousReps,
                             showWeightColumn = showWeightColumn,
                         )
+                    val previousDisplayAmount =
+                        set.previousWeight?.let { previous ->
+                            WeightConversion.convertAmount(
+                                if (assistMode) abs(previous.amount) else previous.amount,
+                                previous.unit,
+                                displayUnit,
+                            )
+                        }
 
                     // Domain recs are in the recommended weight's unit (live path: Lb).
                     val recSourceUnit = set.recommendedWeight.unit
@@ -205,6 +213,8 @@ internal object WorkoutUiMapper {
                         isComplete = set.loggedValue != null,
                         previousWeightLabel = prevLabel,
                         previousRirLabel = prevRirLabel,
+                        previousWeightAmount = previousDisplayAmount,
+                        previousReps = set.previousReps,
                         rirGoal = set.rirGoal,
                         repMin = set.repMin,
                         repMax = set.repMax,

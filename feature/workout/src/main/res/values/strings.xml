@@ -1,5 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="workout_coach_tab_coach">Coach</string>
+    <string name="workout_coach_tab_overview">Overview</string>
+    <string name="workout_coach_tab_rest">Rest</string>
+    <string name="workout_coach_tab_rest_timed">Rest %1$s</string>
+    <string name="workout_coach_target">Target %1$d–%2$d reps · RIR %3$d</string>
+    <string name="workout_coach_rest_minus">-0:10</string>
+    <string name="workout_coach_rest_plus">+0:10</string>
+    <string name="workout_coach_rest_skip">Skip rest</string>
+    <string name="workout_coach_rest_idle">No rest running. Finish a set and the timer starts here.</string>
+    <string name="workout_coach_last_session">Last session</string>
+    <string name="workout_coach_set_label">Set %1$s</string>
+    <string name="workout_coach_top_set">Top set</string>
+    <string name="workout_coach_total_reps">Total reps</string>
+    <string name="workout_coach_est_1rm">Est. 1RM</string>
+    <string name="workout_coach_recommendation">Recommendation · %1$s</string>
+    <string name="workout_coach_recommendation_body_history">Auto-applied to your set fields. Last session\'s top set was %1$s.</string>
+    <string name="workout_coach_recommendation_body">Auto-applied to your set fields.</string>
+    <string name="workout_coach_recommendation_source">From your logged RIR and set history.</string>
+    <string name="workout_coach_elapsed">Elapsed</string>
+    <string name="workout_coach_sets_label">Sets logged</string>
+    <string name="workout_coach_volume">Volume</string>
+    <string name="workout_coach_est_remaining">Est. remaining</string>
+    <string name="workout_coach_sets_left">%1$d sets left, rests included</string>
+    <string name="workout_coach_up_next">Up next</string>
+    <string name="workout_coach_set_line">Set %1$s · %2$s</string>
+    <string name="workout_coach_set_detail">%1$s × %2$s · RIR %3$d</string>
+    <string name="workout_coach_set_detail_bodyweight">%1$s reps · RIR %2$d</string>
+    <string name="workout_coach_after_that">Then set %1$s · %2$s</string>
     <string name="workout_screen_discard_workout">Discard Workout?</string>
     <string name="workout_screen_discard_confirm_body">This will permanently delete the current training session and all logged sets. Are you sure?</string>
     <string name="workout_screen_cancel_discard">Cancel</string>

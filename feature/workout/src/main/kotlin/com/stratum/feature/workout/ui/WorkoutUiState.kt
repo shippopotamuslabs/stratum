@@ -230,6 +230,10 @@ data class RenderedSetUi(
     val previousWeightLabel: String? = null,
     /** Second line under prev weight×reps, e.g. `"2 RIR"`; null when no prior RIR. */
     val previousRirLabel: String? = null,
+    /** Display-unit magnitude of the previous session's weight; null with no history. */
+    val previousWeightAmount: Double? = null,
+    /** Previous session's reps for this set; null with no history. */
+    val previousReps: Int? = null,
     val rirGoal: Int,
     val repMin: Int,
     val repMax: Int,

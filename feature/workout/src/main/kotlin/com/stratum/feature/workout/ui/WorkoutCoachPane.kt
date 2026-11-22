@@ -1,0 +1,446 @@
+package com.stratum.feature.workout.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.stratum.core.ui.component.StratumButton
+import com.stratum.core.ui.component.StratumSegmentedControl
+import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.component.formatWeightAmount
+import com.stratum.core.ui.component.formatWorkoutDuration
+import kotlinx.coroutines.delay
+import com.stratum.core.ui.theme.StratumSpacing
+import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.feature.workout.R
+
+/**
+ * The right pane of the two-pane workout screen (STR-323). The left pane stays
+ * the workout screen itself; this pane follows the workout: Coach for the
+ * selected lift, Overview for the session, Rest while the timer runs.
+ */
+@Composable
+internal fun WorkoutCoachPane(
+    state: WorkoutUiState.Loaded,
+    primaryLiftId: String?,
+    restTimer: RestTimerChrome,
+    tab: WorkoutCoachTab,
+    onTabChange: (WorkoutCoachTab) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val restLabel =
+        if (restTimer.isActive) {
+            stringResource(R.string.workout_coach_tab_rest_timed, formatRestDisplay(restTimer.remainingSeconds))
+        } else {
+            stringResource(R.string.workout_coach_tab_rest)
+        }
+    Column(
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(StratumThemeAccessor.colors.surfaceBase)
+                .padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
+    ) {
+        StratumSegmentedControl(
+            segments =
+                listOf(
+                    stringResource(R.string.workout_coach_tab_coach),
+                    stringResource(R.string.workout_coach_tab_overview),
+                    restLabel,
+                ),
+            selectedIndex = tab.ordinal,
+            onSelectedIndexChange = { index -> onTabChange(WorkoutCoachTab.entries[index]) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        when (tab) {
+            WorkoutCoachTab.Coach -> CoachPaneBody(state = state, primaryLiftId = primaryLiftId)
+            WorkoutCoachTab.Overview -> OverviewPaneBody(state = state)
+            WorkoutCoachTab.Rest -> RestPaneBody(state = state, primaryLiftId = primaryLiftId, restTimer = restTimer)
+        }
+    }
+}
+
+/** The coach pane's three states. The tab name appears only on the toggle. */
+internal enum class WorkoutCoachTab {
+    Coach,
+    Overview,
+    Rest,
+}
+
+/** Last session's bests for one lift, from the sets' previous-session values. */
+internal data class CoachLiftBests(
+    val topSetWeight: Double?,
+    val totalReps: Int,
+    val estimatedOneRepMax: Double?,
+)
+
+internal fun coachLiftBests(sets: List<RenderedSetUi>): CoachLiftBests {
+    val performed = sets.filter { set -> set.previousReps != null }
+    val topSet = performed.mapNotNull { set -> set.previousWeightAmount }.maxOrNull()
+    val totalReps = performed.sumOf { set -> set.previousReps ?: 0 }
+    val oneRepMax =
+        performed
+            .mapNotNull { set ->
+                val weight = set.previousWeightAmount ?: return@mapNotNull null
+                val reps = set.previousReps ?: return@mapNotNull null
+                if (weight <= 0.0 || reps <= 0) null else weight * (1.0 + reps / 30.0)
+            }.maxOrNull()
+    return CoachLiftBests(topSetWeight = topSet, totalReps = totalReps, estimatedOneRepMax = oneRepMax)
+}
+
+@Composable
+private fun CoachPaneBody(
+    state: WorkoutUiState.Loaded,
+    primaryLiftId: String?,
+) {
+    val lift =
+        state.lifts.firstOrNull { lift -> lift.workoutLiftId == primaryLiftId }
+            ?: state.lifts.firstOrNull()
+            ?: return
+    val firstSet = lift.sets.firstOrNull()
+    val previousSets = lift.sets.filter { set -> set.previousWeightLabel != null }
+    val bests = coachLiftBests(lift.sets)
+    val unit = firstSet?.unitLabel ?: "lb"
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4)) {
+            StratumText(
+                text = lift.liftName,
+                style = StratumThemeAccessor.typography.titleLarge,
+            )
+            firstSet?.let { set ->
+                StratumText(
+                    text =
+                        stringResource(
+                            R.string.workout_coach_target,
+                            set.repMin,
+                            set.repMax,
+                            set.rirGoal,
+                        ),
+                    muted = true,
+                )
+            }
+        }
+        if (previousSets.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
+                StratumText(
+                    text = stringResource(R.string.workout_coach_last_session),
+                    style = StratumThemeAccessor.typography.titleSmall,
+                )
+                for (set in previousSets) {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        StratumText(
+                            text = stringResource(R.string.workout_coach_set_label, set.positionLabel),
+                            muted = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                        StratumText(text = set.previousWeightLabel.orEmpty())
+                        set.previousRirLabel?.let { rir ->
+                            StratumText(text = " · $rir", muted = true)
+                        }
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
+                PaneStatTile(
+                    label = stringResource(R.string.workout_coach_top_set),
+                    value = bests.topSetWeight?.let { weight -> "${formatWeightAmount(weight)} $unit" } ?: "—",
+                    modifier = Modifier.weight(1f),
+                )
+                PaneStatTile(
+                    label = stringResource(R.string.workout_coach_total_reps),
+                    value = bests.totalReps.toString(),
+                    modifier = Modifier.weight(1f),
+                )
+                PaneStatTile(
+                    label = stringResource(R.string.workout_coach_est_1rm),
+                    value = bests.estimatedOneRepMax?.let { weight -> "${formatWeightAmount(weight)} $unit" } ?: "—",
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        firstSet?.let { set ->
+            if (set.recommendedWeightLabel.isNotBlank()) {
+                CoachRecommendationPanel(
+                    lift = lift,
+                    bests = bests,
+                    unit = unit,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PaneStatTile(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    sublabel: String? = null,
+) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    Column(
+        modifier =
+            modifier
+                .background(colors.surfaceRaised, shapes.panel)
+                .padding(StratumSpacing.s12),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
+    ) {
+        StratumText(text = value, style = StratumThemeAccessor.typography.titleMedium)
+        StratumText(text = label, muted = true, style = StratumThemeAccessor.typography.labelMedium)
+        sublabel?.let { sub ->
+            StratumText(text = sub, muted = true, style = StratumThemeAccessor.typography.labelMedium)
+        }
+    }
+}
+
+@Composable
+private fun CoachRecommendationPanel(
+    lift: RenderedLiftUi,
+    bests: CoachLiftBests,
+    unit: String,
+) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    val recommended = lift.sets.firstOrNull()?.recommendedWeightLabel.orEmpty()
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(colors.surfaceRaised, shapes.panel)
+                .padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
+    ) {
+        StratumText(
+            text = stringResource(R.string.workout_coach_recommendation, recommended),
+            style = StratumThemeAccessor.typography.titleSmall,
+        )
+        StratumText(
+            text =
+                if (bests.topSetWeight != null) {
+                    stringResource(
+                        R.string.workout_coach_recommendation_body_history,
+                        "${formatWeightAmount(bests.topSetWeight)} $unit",
+                    )
+                } else {
+                    stringResource(R.string.workout_coach_recommendation_body)
+                },
+        )
+        StratumText(
+            text = stringResource(R.string.workout_coach_recommendation_source),
+            muted = true,
+            style = StratumThemeAccessor.typography.labelMedium,
+        )
+    }
+}
+
+/** Average seconds of work per set in the remaining-time estimate. Rests come from the sets. */
+internal const val ESTIMATED_SET_SECONDS = 40
+
+/**
+ * Estimated seconds left in the workout: every incomplete set's work plus the
+ * configured rest after each set except the final one.
+ */
+internal fun estimateRemainingSeconds(lifts: List<RenderedLiftUi>): Int {
+    val incomplete = lifts.flatMap { lift -> lift.sets }.filter { set -> !set.isComplete }
+    if (incomplete.isEmpty()) return 0
+    val rests = incomplete.dropLast(1).sumOf { set -> set.restSeconds }
+    return rests + incomplete.size * ESTIMATED_SET_SECONDS
+}
+
+/** Total logged volume: sum of weight magnitude times reps over completed sets. */
+internal fun sessionVolume(lifts: List<RenderedLiftUi>): Double =
+    lifts.sumOf { lift ->
+        lift.sets.sumOf { set ->
+            if (set.isComplete) (set.loggedWeightAmount ?: 0.0) * (set.loggedReps ?: 0) else 0.0
+        }
+    }
+
+/**
+ * The next incomplete sets at or after the primary lift, in workout order.
+ * Falls back to the first incomplete sets anywhere when the primary lift and
+ * everything after it are done.
+ */
+internal fun upNextSets(
+    lifts: List<RenderedLiftUi>,
+    primaryLiftId: String?,
+    count: Int = 2,
+): List<Pair<RenderedLiftUi, RenderedSetUi>> {
+    val startIndex =
+        lifts.indexOfFirst { lift -> lift.workoutLiftId == primaryLiftId }
+            .takeIf { index -> index >= 0 } ?: 0
+    val forward =
+        lifts.drop(startIndex).flatMap { lift ->
+            lift.sets.filter { set -> !set.isComplete }.map { set -> lift to set }
+        }
+    if (forward.isNotEmpty()) return forward.take(count)
+    return lifts
+        .flatMap { lift -> lift.sets.filter { set -> !set.isComplete }.map { set -> lift to set } }
+        .take(count)
+}
+
+@Composable
+private fun OverviewPaneBody(state: WorkoutUiState.Loaded) {
+    val totalSets = state.lifts.sumOf { lift -> lift.sets.size }
+    val loggedSets = state.lifts.sumOf { lift -> lift.sets.count { set -> set.isComplete } }
+    val remainingSets = totalSets - loggedSets
+    val unit = state.lifts.firstOrNull()?.sets?.firstOrNull()?.unitLabel ?: "lb"
+    val elapsed = rememberElapsedMillis(state.sessionStartedAtEpochMilli)
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
+                PaneStatTile(
+                    label = stringResource(R.string.workout_coach_elapsed),
+                    value = formatWorkoutDuration(elapsed),
+                    modifier = Modifier.weight(1f),
+                )
+                PaneStatTile(
+                    label = stringResource(R.string.workout_coach_sets_label),
+                    value = "$loggedSets/$totalSets",
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
+                PaneStatTile(
+                    label = stringResource(R.string.workout_coach_volume),
+                    value = "${formatWeightAmount(sessionVolume(state.lifts))} $unit",
+                    modifier = Modifier.weight(1f),
+                )
+                PaneStatTile(
+                    label = stringResource(R.string.workout_coach_est_remaining),
+                    value = "≈ ${formatWorkoutDuration(estimateRemainingSeconds(state.lifts) * 1000L)}",
+                    sublabel = stringResource(R.string.workout_coach_sets_left, remainingSets),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
+            for (lift in state.lifts) {
+                val done = lift.sets.count { set -> set.isComplete }
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    StratumText(text = lift.liftName, modifier = Modifier.weight(1f))
+                    StratumText(text = "$done/${lift.sets.size}", muted = true)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun rememberElapsedMillis(sessionStartedAtEpochMilli: Long): Long {
+    var elapsed by remember(sessionStartedAtEpochMilli) { mutableStateOf(0L) }
+    LaunchedEffect(sessionStartedAtEpochMilli) {
+        while (true) {
+            elapsed = (System.currentTimeMillis() - sessionStartedAtEpochMilli).coerceAtLeast(0)
+            delay(1000)
+        }
+    }
+    return elapsed
+}
+
+@Composable
+private fun RestPaneBody(
+    state: WorkoutUiState.Loaded,
+    primaryLiftId: String?,
+    restTimer: RestTimerChrome,
+) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    val upNext = upNextSets(state.lifts, primaryLiftId)
+    Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16)) {
+        if (restTimer.isActive) {
+            StratumText(
+                text = formatRestDisplay(restTimer.remainingSeconds),
+                style = StratumThemeAccessor.typography.displayLarge,
+            )
+            upNext.firstOrNull()?.let { (lift, set) ->
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(colors.surfaceRaised, shapes.panel)
+                            .padding(StratumSpacing.s16),
+                    verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
+                ) {
+                    StratumText(
+                        text = stringResource(R.string.workout_coach_up_next),
+                        muted = true,
+                        style = StratumThemeAccessor.typography.labelMedium,
+                    )
+                    StratumText(
+                        text = stringResource(R.string.workout_coach_set_line, set.positionLabel, lift.liftName),
+                        style = StratumThemeAccessor.typography.titleMedium,
+                    )
+                    StratumText(
+                        text =
+                            if (set.recommendedWeightLabel.isNotBlank()) {
+                                stringResource(
+                                    R.string.workout_coach_set_detail,
+                                    set.recommendedWeightLabel,
+                                    set.recommendedRepsLabel,
+                                    set.rirGoal,
+                                )
+                            } else {
+                                stringResource(
+                                    R.string.workout_coach_set_detail_bodyweight,
+                                    set.recommendedRepsLabel,
+                                    set.rirGoal,
+                                )
+                            },
+                        muted = true,
+                    )
+                }
+            }
+            upNext.getOrNull(1)?.let { (lift, set) ->
+                StratumText(
+                    text =
+                        stringResource(
+                            R.string.workout_coach_after_that,
+                            set.positionLabel,
+                            lift.liftName,
+                        ),
+                    muted = true,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
+                StratumButton(
+                    text = stringResource(R.string.workout_coach_rest_minus),
+                    onClick = restTimer.onSubtract10s,
+                )
+                StratumButton(
+                    text = stringResource(R.string.workout_coach_rest_plus),
+                    onClick = restTimer.onAdd10s,
+                )
+                StratumButton(
+                    text = stringResource(R.string.workout_coach_rest_skip),
+                    onClick = restTimer.onSkip,
+                )
+            }
+        } else {
+            StratumText(
+                text = stringResource(R.string.workout_coach_rest_idle),
+                muted = true,
+            )
+        }
+    }
+}
