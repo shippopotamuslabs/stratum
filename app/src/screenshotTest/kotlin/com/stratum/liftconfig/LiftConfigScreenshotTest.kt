@@ -84,28 +84,6 @@ fun manageEquipmentSelectionNeo() {
 @PreviewTest
 @PreviewLightDark
 @Composable
-fun manageEquipmentDeletingTonal() {
-    ManageEquipmentPreviewContent(
-        family = StratumThemeId.Tonal,
-        state = previewManageEquipmentDeleting(),
-        selectionMode = false,
-    )
-}
-
-@PreviewTest
-@PreviewLightDark
-@Composable
-fun manageEquipmentDeletingNeo() {
-    ManageEquipmentPreviewContent(
-        family = StratumThemeId.NeoBrutalist,
-        state = previewManageEquipmentDeleting(),
-        selectionMode = false,
-    )
-}
-
-@PreviewTest
-@PreviewLightDark
-@Composable
 fun manageEquipmentRevealedTonal() {
     ManageEquipmentRevealedPreviewContent(family = StratumThemeId.Tonal)
 }
@@ -120,66 +98,114 @@ fun manageEquipmentRevealedNeo() {
 @PreviewTest
 @PreviewLightDark
 @Composable
-fun manageEquipmentReassigningTonal() {
-    ManageEquipmentPreviewContent(
+fun manageEquipmentDeleteSheetManyAffectedTonal() {
+    ManageEquipmentDeleteSheetPreviewContent(
         family = StratumThemeId.Tonal,
-        state = previewManageEquipmentReassigning(),
-        selectionMode = false,
+        state = previewManageEquipmentReassigningManyAffected(),
     )
 }
 
 @PreviewTest
 @PreviewLightDark
 @Composable
-fun manageEquipmentReassigningNeo() {
-    ManageEquipmentPreviewContent(
+fun manageEquipmentDeleteSheetManyAffectedNeo() {
+    ManageEquipmentDeleteSheetPreviewContent(
         family = StratumThemeId.NeoBrutalist,
-        state = previewManageEquipmentReassigning(),
-        selectionMode = false,
+        state = previewManageEquipmentReassigningManyAffected(),
     )
 }
 
 @PreviewTest
 @PreviewLightDark
 @Composable
-fun manageEquipmentReassigningLongListTonal() {
-    ManageEquipmentPreviewContent(
+fun manageEquipmentDeleteSheetFallbackManyAffectedTonal() {
+    ManageEquipmentDeleteSheetPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewManageEquipmentFallbackManyAffected(),
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentDeleteSheetFallbackManyAffectedNeo() {
+    ManageEquipmentDeleteSheetPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        state = previewManageEquipmentFallbackManyAffected(),
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentDeletePickerTonal() {
+    ManageEquipmentDeletePickerPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentDeletePickerNeo() {
+    ManageEquipmentDeletePickerPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentDeleteSheetSimpleTonal() {
+    ManageEquipmentDeleteSheetPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewManageEquipmentDeleting(),
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentDeleteSheetSimpleNeo() {
+    ManageEquipmentDeleteSheetPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        state = previewManageEquipmentDeleting(),
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentDeleteSheetNoPickTonal() {
+    ManageEquipmentDeleteSheetPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewManageEquipmentReassigningNoPick(),
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentDeleteSheetNoPickNeo() {
+    ManageEquipmentDeleteSheetPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        state = previewManageEquipmentReassigningNoPick(),
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentDeletePickerLongListTonal() {
+    ManageEquipmentDeletePickerPreviewContent(
         family = StratumThemeId.Tonal,
         state = previewManageEquipmentReassigningLongList(),
-        selectionMode = false,
     )
 }
 
 @PreviewTest
 @PreviewLightDark
 @Composable
-fun manageEquipmentReassigningLongListNeo() {
-    ManageEquipmentPreviewContent(
+fun manageEquipmentDeletePickerLongListNeo() {
+    ManageEquipmentDeletePickerPreviewContent(
         family = StratumThemeId.NeoBrutalist,
         state = previewManageEquipmentReassigningLongList(),
-        selectionMode = false,
-    )
-}
-
-@PreviewTest
-@PreviewLightDark
-@Composable
-fun manageEquipmentFallbackTonal() {
-    ManageEquipmentPreviewContent(
-        family = StratumThemeId.Tonal,
-        state = previewManageEquipmentFallback(),
-        selectionMode = false,
-    )
-}
-
-@PreviewTest
-@PreviewLightDark
-@Composable
-fun manageEquipmentFallbackNeo() {
-    ManageEquipmentPreviewContent(
-        family = StratumThemeId.NeoBrutalist,
-        state = previewManageEquipmentFallback(),
-        selectionMode = false,
     )
 }
 

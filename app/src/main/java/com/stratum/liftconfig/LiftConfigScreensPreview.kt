@@ -1,8 +1,10 @@
 package com.stratum.liftconfig
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,10 +20,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumMuscleFilterCardState
+import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.StratumThemeId
@@ -402,6 +408,23 @@ internal fun previewManageEquipmentReassigning(): ManageEquipmentUiState =
             ),
     )
 
+/** STR-335: the reassign state before a replacement is picked (Delete stays disabled). */
+internal fun previewManageEquipmentReassigningNoPick(): ManageEquipmentUiState =
+    previewManageEquipment().copy(
+        pendingDelete =
+            PendingDeleteUi(
+                id = "eq-dumbbell",
+                name = "Adjustable Dumbbell",
+                affectedLiftNames = listOf("Dumbbell Press"),
+                affectedWorkouts = listOf(AffectedWorkoutUi(name = "Push Day", slotCount = 2)),
+                candidates =
+                    listOf(
+                        ReplacementOptionUi(id = "eq-barbell", name = "Olympic Barbell"),
+                    ),
+                selectedReplacementId = null,
+            ),
+    )
+
 /** STR-134: a candidate list long enough to overflow the dialog unbounded. */
 internal fun previewManageEquipmentReassigningLongList(): ManageEquipmentUiState =
     previewManageEquipment().copy(
@@ -437,6 +460,120 @@ internal fun previewManageEquipmentFallback(): ManageEquipmentUiState =
                 id = "eq-dumbbell",
                 name = "Adjustable Dumbbell",
                 affectedLiftNames = listOf("Dumbbell Press"),
+                usesBodyweightFallback = true,
+            ),
+    )
+
+/** STR-334: a cable station with more affected lifts than the preview shows. */
+internal fun previewManageEquipmentReassigningManyAffected(): ManageEquipmentUiState =
+    previewManageEquipment().copy(
+        pendingDelete =
+            PendingDeleteUi(
+                id = "eq-hoist-low-row",
+                name = "Hoist Low-Row",
+                affectedLiftNames =
+                    listOf(
+                        "Bayesian Curl",
+                        "Bicep Curl (Cable EZ Bar)",
+                        "Bicep Curl (Cable Single-Arm)",
+                        "Cable Chest Fly",
+                        "Cable Crossover",
+                        "Cable Crunch",
+                        "Cable Row (Mid Neutral Grip)",
+                        "Face Pull",
+                    ),
+                candidates =
+                    listOf(
+                        ReplacementOptionUi(id = "eq-barbell", name = "Olympic Barbell"),
+                        ReplacementOptionUi(id = "eq-cable-cross", name = "Cable crossover"),
+                        ReplacementOptionUi(id = "eq-lat-stack", name = "Lat pulldown stack"),
+                    ),
+                selectedReplacementId = "eq-barbell",
+            ),
+    )
+
+/**
+ * STR-335: the delete sheet body rendered inline (sheet chrome is
+ * framework-owned). The container mirrors StratumBottomSheet's inner Column:
+ * surface-inset background, same paddings and spacing, title on top.
+ */
+@Composable
+internal fun ManageEquipmentDeleteSheetPreviewContent(
+    family: StratumThemeId,
+    state: ManageEquipmentUiState,
+) {
+    val pending = state.pendingDelete
+    StratumTheme(themeId = family) {
+        if (pending != null) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(StratumThemeAccessor.colors.surfaceInset)
+                        .padding(horizontal = StratumSpacing.s12)
+                        .padding(top = StratumSpacing.s4, bottom = StratumSpacing.s32),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
+            ) {
+                StratumText(
+                    text = stringResource(UiR.string.equipment_delete_title, pending.name),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = StratumSpacing.s8),
+                    style = StratumThemeAccessor.typography.titleLarge,
+                    textAlign = TextAlign.Center,
+                )
+                EquipmentDeleteSheetContent(
+                    name = pending.name,
+                    onConfirm = {},
+                    onDismiss = {},
+                    affectedLiftNames = pending.affectedLiftNames,
+                    affectedWorkouts = pending.affectedWorkouts,
+                    candidates = pending.candidates,
+                    selectedReplacementId = pending.selectedReplacementId,
+                    usesBodyweightFallback = pending.usesBodyweightFallback,
+                    canConfirmDelete = pending.canConfirmDelete,
+                    onOpenPicker = {},
+                )
+            }
+        }
+    }
+}
+
+/** STR-335: the full-screen replacement picker over the given state's candidate set. */
+@Composable
+internal fun ManageEquipmentDeletePickerPreviewContent(
+    family: StratumThemeId,
+    state: ManageEquipmentUiState = previewManageEquipmentReassigningManyAffected(),
+) {
+    val pending = state.pendingDelete
+    StratumTheme(themeId = family) {
+        if (pending != null) {
+            ReplacementCatalogPickerContent(
+                candidates = pending.candidates,
+                selectedReplacementId = pending.selectedReplacementId,
+                onSelect = {},
+                onBack = {},
+            )
+        }
+    }
+}
+
+/** STR-334: the Bodyweight fallback with more affected lifts than the preview shows. */
+internal fun previewManageEquipmentFallbackManyAffected(): ManageEquipmentUiState =
+    previewManageEquipment().copy(
+        pendingDelete =
+            PendingDeleteUi(
+                id = "eq-hoist-low-row",
+                name = "Hoist Low-Row",
+                affectedLiftNames =
+                    listOf(
+                        "Bayesian Curl",
+                        "Cable Chest Fly",
+                        "Cable Crossover",
+                        "Cable Row (Mid Neutral Grip)",
+                        "Face Pull",
+                    ),
                 usesBodyweightFallback = true,
             ),
     )
