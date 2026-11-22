@@ -1,25 +1,37 @@
 package com.stratum.feature.workout.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
@@ -43,6 +55,7 @@ internal fun WorkoutCoachPane(
     tab: WorkoutCoachTab,
     onTabChange: (WorkoutCoachTab) -> Unit,
     modifier: Modifier = Modifier,
+    onLiftSelected: (String) -> Unit = {},
 ) {
     val restLabel =
         if (restTimer.isActive) {
@@ -72,7 +85,8 @@ internal fun WorkoutCoachPane(
         )
         when (tab) {
             WorkoutCoachTab.Coach -> CoachPaneBody(state = state, primaryLiftId = primaryLiftId)
-            WorkoutCoachTab.Overview -> OverviewPaneBody(state = state)
+            WorkoutCoachTab.Overview ->
+                OverviewPaneBody(state = state, primaryLiftId = primaryLiftId, onLiftSelected = onLiftSelected)
             WorkoutCoachTab.Rest -> RestPaneBody(state = state, primaryLiftId = primaryLiftId, restTimer = restTimer)
         }
     }
@@ -389,13 +403,36 @@ internal fun upNextSets(
         .take(count)
 }
 
+/** Where a lift stands in the session, for the Overview rows (STR-327). */
+internal enum class OverviewLiftStatus {
+    Planned,
+    InProgress,
+    Complete,
+}
+
+internal fun overviewLiftStatus(lift: RenderedLiftUi): OverviewLiftStatus {
+    val done = lift.sets.count { set -> set.isComplete }
+    return when {
+        lift.sets.isNotEmpty() && done == lift.sets.size -> OverviewLiftStatus.Complete
+        done > 0 -> OverviewLiftStatus.InProgress
+        else -> OverviewLiftStatus.Planned
+    }
+}
+
 @Composable
-private fun OverviewPaneBody(state: WorkoutUiState.Loaded) {
+private fun OverviewPaneBody(
+    state: WorkoutUiState.Loaded,
+    primaryLiftId: String?,
+    onLiftSelected: (String) -> Unit,
+) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
     val totalSets = state.lifts.sumOf { lift -> lift.sets.size }
     val loggedSets = state.lifts.sumOf { lift -> lift.sets.count { set -> set.isComplete } }
     val remainingSets = totalSets - loggedSets
     val unit = state.lifts.firstOrNull()?.sets?.firstOrNull()?.unitLabel ?: "lb"
     val elapsed = rememberElapsedMillis(state.sessionStartedAtEpochMilli)
+    val currentLiftId = primaryLiftId ?: state.lifts.firstOrNull()?.workoutLiftId
     Column(
         modifier = Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
@@ -426,14 +463,128 @@ private fun OverviewPaneBody(state: WorkoutUiState.Loaded) {
                     modifier = Modifier.weight(1f),
                 )
             }
+            if (totalSets > 0) {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(StratumSpacing.s4)
+                            .background(colors.surfaceInset, shapes.chip),
+                ) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth(loggedSets.toFloat() / totalSets.toFloat())
+                                .fillMaxHeight()
+                                .background(colors.accent, shapes.chip),
+                    )
+                }
+            }
         }
         Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
-            for (lift in state.lifts) {
-                val done = lift.sets.count { set -> set.isComplete }
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    StratumText(text = lift.liftName, modifier = Modifier.weight(1f))
-                    StratumText(text = "$done/${lift.sets.size}", muted = true)
-                }
+            state.lifts.forEachIndexed { index, lift ->
+                OverviewLiftRow(
+                    lift = lift,
+                    index = index,
+                    isCurrent = lift.workoutLiftId == currentLiftId,
+                    onClick = { onLiftSelected(lift.workoutLiftId) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewLiftRow(
+    lift: RenderedLiftUi,
+    index: Int,
+    isCurrent: Boolean,
+    onClick: () -> Unit,
+) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    val status = overviewLiftStatus(lift)
+    val done = lift.sets.count { set -> set.isComplete }
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(
+                    if (isCurrent) colors.accentMuted else colors.surfaceRaised,
+                    shapes.panel,
+                )
+                .then(
+                    if (isCurrent) {
+                        Modifier.border(shapes.borderWidth, colors.borderInteractive, shapes.panel)
+                    } else {
+                        Modifier
+                    },
+                )
+                .clickable(onClick = onClick)
+                .padding(StratumSpacing.s12),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(28.dp)
+                    .background(
+                        when {
+                            status == OverviewLiftStatus.Complete -> colors.setComplete
+                            isCurrent -> colors.accent
+                            else -> colors.surfaceInset
+                        },
+                        CircleShape,
+                    ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (status == OverviewLiftStatus.Complete) {
+                Icon(
+                    painter = painterResource(CoreUiR.drawable.ic_check),
+                    contentDescription = null,
+                    tint = colors.onAccent,
+                    modifier = Modifier.size(16.dp),
+                )
+            } else {
+                StratumText(
+                    text = (index + 1).toString(),
+                    style = StratumThemeAccessor.typography.labelMedium,
+                    color = if (isCurrent) colors.onAccent else colors.textMuted,
+                )
+            }
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
+        ) {
+            StratumText(text = lift.liftName, style = StratumThemeAccessor.typography.titleSmall)
+            StratumText(
+                text =
+                    when (status) {
+                        OverviewLiftStatus.Complete ->
+                            stringResource(R.string.workout_coach_sets_done, done, lift.sets.size)
+                        OverviewLiftStatus.InProgress ->
+                            stringResource(R.string.workout_coach_sets_in_progress, done, lift.sets.size)
+                        OverviewLiftStatus.Planned ->
+                            stringResource(R.string.workout_coach_sets_planned, lift.sets.size)
+                    },
+                muted = true,
+                style = StratumThemeAccessor.typography.labelMedium,
+            )
+        }
+        if (isCurrent) {
+            Box(
+                modifier =
+                    Modifier
+                        .background(colors.accent, shapes.chip)
+                        .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
+            ) {
+                StratumText(
+                    text = stringResource(R.string.workout_coach_now),
+                    style = StratumThemeAccessor.typography.labelMedium,
+                    color = colors.onAccent,
+                )
             }
         }
     }

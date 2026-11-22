@@ -147,6 +147,8 @@ fun WorkoutScreen(
     onPrimaryLiftChanged: (String?) -> Unit = {},
     /** A strip tap on a lift, distinct from scroll-driven primary changes. */
     onLiftTapped: (String) -> Unit = {},
+    /** External focus request (STR-327): scroll to the lift and make it primary, without the strip-tap side effects. */
+    focusLiftRequest: LiftFocusRequest? = null,
 ) {
     var showRestSheet by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
@@ -190,12 +192,12 @@ fun WorkoutScreen(
         }
     }
 
-    val scrollToLift: (String) -> Unit = { workoutLiftId ->
+    val scrollListToLift: (String, Boolean) -> Unit = { workoutLiftId, notifyTap ->
         val index = state.lifts.indexOfFirst { it.workoutLiftId == workoutLiftId }
         if (index >= 0) {
             selectedLiftId = workoutLiftId
             onPrimaryLiftChanged(workoutLiftId)
-            onLiftTapped(workoutLiftId)
+            if (notifyTap) onLiftTapped(workoutLiftId)
             tabScrollJob?.cancel()
             tabScrollJob =
                 scope.launch {
@@ -212,6 +214,16 @@ fun WorkoutScreen(
                     }
                 }
         }
+    }
+
+    val scrollToLift: (String) -> Unit = { workoutLiftId ->
+        scrollListToLift(workoutLiftId, notifyTap = true)
+    }
+
+    // External focus (STR-327): same scroll and primary update as a strip
+    // tap, without the tap callback (the coach pane keeps its current tab).
+    LaunchedEffect(focusLiftRequest) {
+        focusLiftRequest?.let { request -> scrollListToLift(request.workoutLiftId, notifyTap = false) }
     }
 
     // Log only — rest timer, autoscroll, and complete sheet run after [pendingSetLogged]
