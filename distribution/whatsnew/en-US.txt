@@ -1,1 +1,1 @@
-Assisted lifts get live recommendations: log your first set and the following sets fill in with the same assistance and projected reps. The coach pane fills in from today's sets for lifts with no history, with your top set, total reps, and estimated 1RM so far, plus the recommendation for your next set. Overview lifts are tappable cards that scroll the workout to the lift you pick.
+The rest timer is a ring that empties as your rest runs down, with the time left in the middle.
