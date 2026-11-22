@@ -1,1 +1,1 @@
-Two Sheet Mode fixes. The Lift Options sheet groups read clearly: the dividers between action groups use a stronger line. Rest days read as days: each rest day sits in its own band, apart from the lift list above it.
+Foldables get a two-pane program sheet: tap a lift and its editor, muscle contributions, and Move To controls open beside the sheet. Undo restores a moved lift and the panel follows it home. Inspector cards share one rounded panel style, and the contribution header reads clearly in dark theme.
