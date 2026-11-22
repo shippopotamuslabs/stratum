@@ -11,6 +11,13 @@
     <string name="workout_coach_rest_idle">No rest running. Finish a set and the timer starts here.</string>
     <string name="workout_coach_last_session">Last session</string>
     <string name="workout_coach_today">Today</string>
+    <string name="workout_coach_now">Now</string>
+    <string name="workout_coach_sets_done">%1$d/%2$d sets</string>
+    <string name="workout_coach_sets_in_progress">%1$d/%2$d sets · in progress</string>
+    <plurals name="workout_coach_sets_planned">
+        <item quantity="one">%1$d set planned</item>
+        <item quantity="other">%1$d sets planned</item>
+    </plurals>
     <string name="workout_coach_set_label">Set %1$s</string>
     <string name="workout_coach_top_set">Top set</string>
     <string name="workout_coach_total_reps">Total reps</string>

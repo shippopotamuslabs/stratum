@@ -267,3 +267,13 @@ data class RenderedSetUi(
     val isDoubleSided: Boolean = true,
     val unitLabel: String = "lb",
 )
+
+/**
+ * A request for the workout list to focus a lift, issued from outside the
+ * list (STR-327: an Overview row tap in the coach pane). The nonce makes a
+ * repeat tap on the same lift re-fire the scroll.
+ */
+data class LiftFocusRequest(
+    val workoutLiftId: String,
+    val nonce: Int,
+)

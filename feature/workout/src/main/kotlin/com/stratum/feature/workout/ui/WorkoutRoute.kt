@@ -105,6 +105,7 @@ fun WorkoutRoute(
     val posture = rememberWorkoutPosture()
     var coachTab by remember { mutableStateOf(WorkoutCoachTab.Coach) }
     var primaryLiftId by remember { mutableStateOf<String?>(null) }
+    var liftFocusRequest by remember { mutableStateOf<LiftFocusRequest?>(null) }
 
     // Coach pane auto transitions (STR-323): a logged set opens Rest, and Rest
     // ending (timer finish or skip) returns to Coach. Manual tab taps win: the
@@ -182,6 +183,7 @@ fun WorkoutRoute(
                 onFailedLogConsumed = { failedLogSlotKey = null },
                 onPrimaryLiftChanged = { primaryLiftId = it },
                 onLiftTapped = { coachTab = WorkoutCoachTab.Coach },
+                focusLiftRequest = liftFocusRequest,
                 equipmentSwapHost =
                     EquipmentSwapHost(
                         sheet = state.equipmentSwap,
@@ -287,6 +289,11 @@ fun WorkoutRoute(
                         restTimer = restChrome,
                         tab = coachTab,
                         onTabChange = { coachTab = it },
+                        onLiftSelected = { liftId ->
+                            primaryLiftId = liftId
+                            liftFocusRequest =
+                                LiftFocusRequest(liftId, (liftFocusRequest?.nonce ?: 0) + 1)
+                        },
                     )
                 },
             )
