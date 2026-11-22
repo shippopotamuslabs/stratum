@@ -469,34 +469,25 @@ internal fun previewManageEquipmentReassigningManyAffected(): ManageEquipmentUiS
             ),
     )
 
-/** STR-334: the many-affected dialog with the affected list expanded (fixture seam). */
+/** STR-334: the many-affected dialog with the affected list expanded. */
 @Composable
 internal fun ManageEquipmentDeleteExpandedPreviewContent(family: StratumThemeId) {
+    val pending = previewManageEquipmentReassigningManyAffected().pendingDelete
     StratumTheme(themeId = family) {
-        EquipmentDeleteConfirmDialog(
-            name = "Hoist Low-Row",
-            onConfirm = {},
-            onDismiss = {},
-            affectedLiftNames =
-                listOf(
-                    "Bayesian Curl",
-                    "Bicep Curl (Cable EZ Bar)",
-                    "Bicep Curl (Cable Single-Arm)",
-                    "Cable Chest Fly",
-                    "Cable Crossover",
-                    "Cable Crunch",
-                    "Cable Row (Mid Neutral Grip)",
-                    "Face Pull",
-                ),
-            candidates =
-                listOf(
-                    ReplacementOptionUi(id = "eq-barbell", name = "Olympic Barbell"),
-                    ReplacementOptionUi(id = "eq-cable-cross", name = "Cable crossover"),
-                    ReplacementOptionUi(id = "eq-lat-stack", name = "Lat pulldown stack"),
-                ),
-            selectedReplacementId = "eq-barbell",
-            affectedListInitiallyExpanded = true,
-        )
+        if (pending != null) {
+            EquipmentDeleteConfirmDialog(
+                name = pending.name,
+                onConfirm = {},
+                onDismiss = {},
+                affectedLiftNames = pending.affectedLiftNames,
+                affectedWorkouts = pending.affectedWorkouts,
+                candidates = pending.candidates,
+                selectedReplacementId = pending.selectedReplacementId,
+                usesBodyweightFallback = pending.usesBodyweightFallback,
+                canConfirmDelete = pending.canConfirmDelete,
+                affectedListState = rememberAffectedListState(initiallyExpanded = true),
+            )
+        }
     }
 }
 

@@ -43,6 +43,26 @@ private const val AFFECTED_PREVIEW_COUNT = 3
 private val AffectedListMaxHeight = 150.dp
 
 /**
+ * Expansion state for the affected list in [EquipmentDeleteConfirmDialog]
+ * (STR-334). The dialog creates one internally; screenshot fixtures pass a
+ * pre-expanded holder so the expanded rendering is reachable in goldens.
+ */
+internal class AffectedListState(
+    initiallyExpanded: Boolean = false,
+) {
+    var expanded by mutableStateOf(initiallyExpanded)
+        private set
+
+    fun toggle() {
+        expanded = !expanded
+    }
+}
+
+@Composable
+internal fun rememberAffectedListState(initiallyExpanded: Boolean = false): AffectedListState =
+    remember { AffectedListState(initiallyExpanded) }
+
+/**
  * Shared delete confirmation for both equipment delete entry points (Manage
  * Equipment swipe-to-dismiss and the increments-editor red delete button), so
  * title/body/label copy and destructive styling cannot drift between them.
@@ -56,8 +76,6 @@ private val AffectedListMaxHeight = 150.dp
  * toggle inside a height-capped scroll box, so a heavily used piece of
  * equipment (a cable station with 60+ lifts) can never push the Cancel/Delete
  * row off the dialog the way the old inline enumeration did.
- * [affectedListInitiallyExpanded] exists for screenshot fixtures of the
- * expanded state; production call sites leave it collapsed.
  */
 @Composable
 internal fun EquipmentDeleteConfirmDialog(
@@ -71,7 +89,7 @@ internal fun EquipmentDeleteConfirmDialog(
     usesBodyweightFallback: Boolean = false,
     canConfirmDelete: Boolean? = null,
     onSelectReplacement: (String) -> Unit = {},
-    affectedListInitiallyExpanded: Boolean = false,
+    affectedListState: AffectedListState = rememberAffectedListState(),
 ) {
     val workoutLabels = mutableListOf<String>()
     for (workout in affectedWorkouts) {
@@ -111,7 +129,7 @@ internal fun EquipmentDeleteConfirmDialog(
             {
                 AffectedLabelsList(
                     labels = affectedLabels,
-                    initiallyExpanded = affectedListInitiallyExpanded,
+                    state = affectedListState,
                 )
                 if (!usesBodyweightFallback) {
                     StratumText(
@@ -162,48 +180,41 @@ internal fun EquipmentDeleteConfirmDialog(
 @Composable
 private fun AffectedLabelsList(
     labels: List<String>,
-    initiallyExpanded: Boolean = false,
+    state: AffectedListState,
 ) {
-    var expanded by remember(labels, initiallyExpanded) { mutableStateOf(initiallyExpanded) }
     val showToggle = labels.size > AFFECTED_PREVIEW_COUNT
-    if (showToggle && expanded) {
-        Column(
-            modifier =
-                Modifier
-                    .heightIn(max = AffectedListMaxHeight)
-                    .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
-        ) {
-            labels.forEach { label ->
-                StratumText(
-                    text = label,
-                    style = StratumThemeAccessor.typography.bodyMedium,
-                    muted = true,
-                )
-            }
+    val isExpanded = showToggle && state.expanded
+    val visibleLabels = if (isExpanded) labels else labels.take(AFFECTED_PREVIEW_COUNT)
+    val scrollState = rememberScrollState()
+    val listModifier =
+        if (isExpanded) {
+            Modifier
+                .heightIn(max = AffectedListMaxHeight)
+                .verticalScroll(scrollState)
+        } else {
+            Modifier
         }
-    } else {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
-        ) {
-            labels.take(AFFECTED_PREVIEW_COUNT).forEach { label ->
-                StratumText(
-                    text = label,
-                    style = StratumThemeAccessor.typography.bodyMedium,
-                    muted = true,
-                )
-            }
+    Column(
+        modifier = listModifier,
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
+    ) {
+        visibleLabels.forEach { label ->
+            StratumText(
+                text = label,
+                style = StratumThemeAccessor.typography.bodyMedium,
+                muted = true,
+            )
         }
     }
     if (showToggle) {
         StratumTextButton(
             text =
-                if (expanded) {
+                if (state.expanded) {
                     stringResource(UiR.string.equipment_delete_show_less)
                 } else {
                     stringResource(UiR.string.equipment_delete_show_all, labels.size)
                 },
-            onClick = { expanded = !expanded },
+            onClick = { state.toggle() },
         )
     }
 }
