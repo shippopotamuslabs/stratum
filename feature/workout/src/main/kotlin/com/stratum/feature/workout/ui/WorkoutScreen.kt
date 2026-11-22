@@ -143,6 +143,10 @@ fun WorkoutScreen(
     failedLogSlotKey: String? = null,
     onFailedLogConsumed: () -> Unit = {},
     equipmentSwapHost: EquipmentSwapHost = EquipmentSwapHost(),
+    /** The lift the strip and scroll currently treat as primary; the coach pane follows it. */
+    onPrimaryLiftChanged: (String?) -> Unit = {},
+    /** A strip tap on a lift, distinct from scroll-driven primary changes. */
+    onLiftTapped: (String) -> Unit = {},
 ) {
     var showRestSheet by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
@@ -190,6 +194,8 @@ fun WorkoutScreen(
         val index = state.lifts.indexOfFirst { it.workoutLiftId == workoutLiftId }
         if (index >= 0) {
             selectedLiftId = workoutLiftId
+            onPrimaryLiftChanged(workoutLiftId)
+            onLiftTapped(workoutLiftId)
             tabScrollJob?.cancel()
             tabScrollJob =
                 scope.launch {
@@ -263,6 +269,7 @@ fun WorkoutScreen(
     LaunchedEffect(primaryVisibleLiftId, programmaticScroll) {
         if (!programmaticScroll && primaryVisibleLiftId != null) {
             selectedLiftId = primaryVisibleLiftId
+            onPrimaryLiftChanged(primaryVisibleLiftId)
         }
     }
 

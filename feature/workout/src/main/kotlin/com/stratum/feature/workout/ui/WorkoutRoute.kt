@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -37,6 +38,7 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.feature.workout.LiveSetKind
+import com.stratum.feature.workout.WorkoutPosture
 import com.stratum.feature.workout.WorkoutViewModel
 import com.stratum.feature.workout.notification.RestTimerState
 import kotlinx.coroutines.delay
@@ -100,6 +102,23 @@ fun WorkoutRoute(
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingSetLogged by remember { mutableStateOf<WorkoutUiEvent.SetLogged?>(null) }
     var failedLogSlotKey by remember { mutableStateOf<String?>(null) }
+    val posture = rememberWorkoutPosture()
+    var coachTab by remember { mutableStateOf(WorkoutCoachTab.Coach) }
+    var primaryLiftId by remember { mutableStateOf<String?>(null) }
+
+    // Coach pane auto transitions (STR-323): a logged set opens Rest, and Rest
+    // ending (timer finish or skip) returns to Coach. Manual tab taps win: the
+    // return only fires while the pane still shows Rest.
+    LaunchedEffect(pendingSetLogged) {
+        if (pendingSetLogged != null && posture is WorkoutPosture.TwoPane) {
+            coachTab = WorkoutCoachTab.Rest
+        }
+    }
+    LaunchedEffect(isRestTimerActive) {
+        if (!isRestTimerActive && coachTab == WorkoutCoachTab.Rest) {
+            coachTab = WorkoutCoachTab.Coach
+        }
+    }
 
     LaunchedEffect(workoutId) {
         viewModel.startSession(WorkoutId(workoutId))
@@ -152,6 +171,7 @@ fun WorkoutRoute(
                 onSubtract10s = viewModel::subtract10SecondsFromRest,
                 onSkip = viewModel::skipRest,
             )
+            val workoutScreen: @Composable (Modifier) -> Unit = { screenModifier ->
             WorkoutScreen(
                 state = state,
                 restTimer = restChrome,
@@ -160,6 +180,8 @@ fun WorkoutRoute(
                 onSetLoggedConsumed = { pendingSetLogged = null },
                 failedLogSlotKey = failedLogSlotKey,
                 onFailedLogConsumed = { failedLogSlotKey = null },
+                onPrimaryLiftChanged = { primaryLiftId = it },
+                onLiftTapped = { coachTab = WorkoutCoachTab.Coach },
                 equipmentSwapHost =
                     EquipmentSwapHost(
                         sheet = state.equipmentSwap,
@@ -251,7 +273,22 @@ fun WorkoutRoute(
                             onLoadPastNotes = viewModel::pastSessionNotes,
                         ),
                 ),
+                modifier = screenModifier,
+            )
+            }
+            WorkoutCoachPanes(
+                posture = posture,
                 modifier = modifier,
+                workout = { workoutScreen(Modifier) },
+                coach = {
+                    WorkoutCoachPane(
+                        state = state,
+                        primaryLiftId = primaryLiftId,
+                        restTimer = restChrome,
+                        tab = coachTab,
+                        onTabChange = { coachTab = it },
+                    )
+                },
             )
         }
     }
