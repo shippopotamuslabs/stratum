@@ -164,6 +164,64 @@ fun manageEquipmentReassigningLongListNeo() {
 @PreviewTest
 @PreviewLightDark
 @Composable
+fun manageEquipmentReassigningManyAffectedTonal() {
+    ManageEquipmentPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewManageEquipmentReassigningManyAffected(),
+        selectionMode = false,
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentReassigningManyAffectedNeo() {
+    ManageEquipmentPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        state = previewManageEquipmentReassigningManyAffected(),
+        selectionMode = false,
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentReassigningManyAffectedExpandedTonal() {
+    ManageEquipmentDeleteExpandedPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentReassigningManyAffectedExpandedNeo() {
+    ManageEquipmentDeleteExpandedPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentFallbackManyAffectedTonal() {
+    ManageEquipmentPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewManageEquipmentFallbackManyAffected(),
+        selectionMode = false,
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentFallbackManyAffectedNeo() {
+    ManageEquipmentPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        state = previewManageEquipmentFallbackManyAffected(),
+        selectionMode = false,
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
 fun manageEquipmentFallbackTonal() {
     ManageEquipmentPreviewContent(
         family = StratumThemeId.Tonal,

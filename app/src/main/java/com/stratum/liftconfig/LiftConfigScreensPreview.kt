@@ -441,6 +441,84 @@ internal fun previewManageEquipmentFallback(): ManageEquipmentUiState =
             ),
     )
 
+/** STR-334: a cable station with more affected lifts than the preview shows. */
+internal fun previewManageEquipmentReassigningManyAffected(): ManageEquipmentUiState =
+    previewManageEquipment().copy(
+        pendingDelete =
+            PendingDeleteUi(
+                id = "eq-hoist-low-row",
+                name = "Hoist Low-Row",
+                affectedLiftNames =
+                    listOf(
+                        "Bayesian Curl",
+                        "Bicep Curl (Cable EZ Bar)",
+                        "Bicep Curl (Cable Single-Arm)",
+                        "Cable Chest Fly",
+                        "Cable Crossover",
+                        "Cable Crunch",
+                        "Cable Row (Mid Neutral Grip)",
+                        "Face Pull",
+                    ),
+                candidates =
+                    listOf(
+                        ReplacementOptionUi(id = "eq-barbell", name = "Olympic Barbell"),
+                        ReplacementOptionUi(id = "eq-cable-cross", name = "Cable crossover"),
+                        ReplacementOptionUi(id = "eq-lat-stack", name = "Lat pulldown stack"),
+                    ),
+                selectedReplacementId = "eq-barbell",
+            ),
+    )
+
+/** STR-334: the many-affected dialog with the affected list expanded (fixture seam). */
+@Composable
+internal fun ManageEquipmentDeleteExpandedPreviewContent(family: StratumThemeId) {
+    StratumTheme(themeId = family) {
+        EquipmentDeleteConfirmDialog(
+            name = "Hoist Low-Row",
+            onConfirm = {},
+            onDismiss = {},
+            affectedLiftNames =
+                listOf(
+                    "Bayesian Curl",
+                    "Bicep Curl (Cable EZ Bar)",
+                    "Bicep Curl (Cable Single-Arm)",
+                    "Cable Chest Fly",
+                    "Cable Crossover",
+                    "Cable Crunch",
+                    "Cable Row (Mid Neutral Grip)",
+                    "Face Pull",
+                ),
+            candidates =
+                listOf(
+                    ReplacementOptionUi(id = "eq-barbell", name = "Olympic Barbell"),
+                    ReplacementOptionUi(id = "eq-cable-cross", name = "Cable crossover"),
+                    ReplacementOptionUi(id = "eq-lat-stack", name = "Lat pulldown stack"),
+                ),
+            selectedReplacementId = "eq-barbell",
+            affectedListInitiallyExpanded = true,
+        )
+    }
+}
+
+/** STR-334: the Bodyweight fallback with more affected lifts than the preview shows. */
+internal fun previewManageEquipmentFallbackManyAffected(): ManageEquipmentUiState =
+    previewManageEquipment().copy(
+        pendingDelete =
+            PendingDeleteUi(
+                id = "eq-hoist-low-row",
+                name = "Hoist Low-Row",
+                affectedLiftNames =
+                    listOf(
+                        "Bayesian Curl",
+                        "Cable Chest Fly",
+                        "Cable Crossover",
+                        "Cable Row (Mid Neutral Grip)",
+                        "Face Pull",
+                    ),
+                usesBodyweightFallback = true,
+            ),
+    )
+
 internal fun previewLiftInformation(tab: LiftInfoTab): LiftInformationUiState =
     LiftInformationUiState(
         liftId = "lift-bench",
