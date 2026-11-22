@@ -27,6 +27,8 @@
     <string name="workout_coach_set_line">Set %1$s · %2$s</string>
     <string name="workout_coach_set_detail">%1$s × %2$s · RIR %3$d</string>
     <string name="workout_coach_set_detail_bodyweight">%1$s reps · RIR %2$d</string>
+    <string name="workout_coach_set_detail_weight_only">%1$s · RIR %2$d</string>
+    <string name="workout_coach_set_detail_rir_only">RIR %1$d</string>
     <string name="workout_coach_after_that">Then set %1$s · %2$s</string>
     <string name="workout_screen_discard_workout">Discard Workout?</string>
     <string name="workout_screen_discard_confirm_body">This will permanently delete the current training session and all logged sets. Are you sure?</string>

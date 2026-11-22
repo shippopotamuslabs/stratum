@@ -222,6 +222,7 @@ internal object WorkoutUiMapper {
                         recommendedReps = set.recommendedReps,
                         hasLiveRepsRecommendation = set.hasLiveRepsRecommendation,
                         isProjected = set.isProjected,
+                        showConcreteReps = showConcreteReps,
                         loggedRir = set.loggedValue?.rir,
                         showWeightInput = showWeightColumn,
                         assistMode = assistMode,

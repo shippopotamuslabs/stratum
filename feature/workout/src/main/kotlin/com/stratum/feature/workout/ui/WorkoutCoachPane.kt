@@ -4,9 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -52,6 +55,7 @@ internal fun WorkoutCoachPane(
             modifier
                 .fillMaxSize()
                 .background(StratumThemeAccessor.colors.surfaceBase)
+                .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(StratumSpacing.s16),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
@@ -112,7 +116,8 @@ private fun CoachPaneBody(
             ?: state.lifts.firstOrNull()
             ?: return
     val firstSet = lift.sets.firstOrNull()
-    val previousSets = lift.sets.filter { set -> set.previousWeightLabel != null }
+    val previousSets =
+        lift.sets.filter { set -> set.previousWeightAmount != null || set.previousReps != null }
     val bests = coachLiftBests(lift.sets)
     val unit = firstSet?.unitLabel ?: "lb"
     Column(
@@ -178,7 +183,7 @@ private fun CoachPaneBody(
         firstSet?.let { set ->
             if (set.recommendedWeightLabel.isNotBlank()) {
                 CoachRecommendationPanel(
-                    lift = lift,
+                    headingSuffix = recommendationHeadingSuffix(set, bests.topSetWeight, unit),
                     bests = bests,
                     unit = unit,
                 )
@@ -211,15 +216,38 @@ private fun PaneStatTile(
     }
 }
 
+/**
+ * The recommendation heading's suffix: the signed change against last
+ * session's top set when there is one, otherwise the recommended weight.
+ * A zero change falls back to the weight.
+ */
+internal fun recommendationHeadingSuffix(
+    firstSet: RenderedSetUi,
+    topSetWeight: Double?,
+    unit: String,
+): String {
+    val delta =
+        if (topSetWeight != null && firstSet.recommendedWeightAmount > 0.0) {
+            firstSet.recommendedWeightAmount - topSetWeight
+        } else {
+            null
+        }
+    if (delta == null || delta == 0.0) return firstSet.recommendedWeightLabel
+    val formatted = formatWeightAmount(kotlin.math.abs(delta))
+    // A delta under display precision rounds to zero; the weight reads better.
+    if (formatted.isEmpty() || formatted == "0") return firstSet.recommendedWeightLabel
+    val sign = if (delta > 0) "+" else "-"
+    return "$sign$formatted $unit"
+}
+
 @Composable
 private fun CoachRecommendationPanel(
-    lift: RenderedLiftUi,
+    headingSuffix: String,
     bests: CoachLiftBests,
     unit: String,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
-    val recommended = lift.sets.firstOrNull()?.recommendedWeightLabel.orEmpty()
     Column(
         modifier =
             Modifier
@@ -229,7 +257,7 @@ private fun CoachRecommendationPanel(
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         StratumText(
-            text = stringResource(R.string.workout_coach_recommendation, recommended),
+            text = stringResource(R.string.workout_coach_recommendation, headingSuffix),
             style = StratumThemeAccessor.typography.titleSmall,
         )
         StratumText(
@@ -264,6 +292,12 @@ internal fun estimateRemainingSeconds(lifts: List<RenderedLiftUi>): Int {
     val rests = incomplete.dropLast(1).sumOf { set -> set.restSeconds }
     return rests + incomplete.size * ESTIMATED_SET_SECONDS
 }
+
+/** Volume tile text. formatWeightAmount blanks zero by design, so zero is spelled out. */
+internal fun volumeLabel(
+    volume: Double,
+    unit: String,
+): String = "${if (volume == 0.0) "0" else formatWeightAmount(volume)} $unit"
 
 /** Total logged volume: sum of weight magnitude times reps over completed sets. */
 internal fun sessionVolume(lifts: List<RenderedLiftUi>): Double =
@@ -323,7 +357,7 @@ private fun OverviewPaneBody(state: WorkoutUiState.Loaded) {
             Row(horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
                 PaneStatTile(
                     label = stringResource(R.string.workout_coach_volume),
-                    value = "${formatWeightAmount(sessionVolume(state.lifts))} $unit",
+                    value = volumeLabel(sessionVolume(state.lifts), unit),
                     modifier = Modifier.weight(1f),
                 )
                 PaneStatTile(
@@ -356,6 +390,52 @@ private fun rememberElapsedMillis(sessionStartedAtEpochMilli: Long): Long {
         }
     }
     return elapsed
+}
+
+/** The up-next card's detail parts, from the numeric recommendation. */
+internal data class UpNextDetail(
+    val weightLabel: String?,
+    val repsLabel: String,
+    val rirGoal: Int,
+)
+
+/**
+ * Reps read the mapper's labels under its canonical gating: the concrete
+ * count only when [RenderedSetUi.showConcreteReps] says the recommendation
+ * is concrete, otherwise the configured range label. A cold-start snapshot
+ * can carry a baseline rep count that is not a concrete recommendation.
+ */
+internal fun upNextDetail(set: RenderedSetUi): UpNextDetail {
+    val reps =
+        when {
+            set.showConcreteReps -> set.recommendedRepsLabel
+            !set.repRangeLabel.isNullOrBlank() -> set.repRangeLabel
+            else -> set.recommendedRepsLabel
+        }
+    return UpNextDetail(
+        weightLabel = set.recommendedWeightLabel.takeIf { label -> label.isNotBlank() },
+        repsLabel = reps,
+        rirGoal = set.rirGoal,
+    )
+}
+
+@Composable
+private fun upNextDetailText(set: RenderedSetUi): String {
+    val detail = upNextDetail(set)
+    return when {
+        detail.weightLabel != null && detail.repsLabel.isNotEmpty() ->
+            stringResource(
+                R.string.workout_coach_set_detail,
+                detail.weightLabel,
+                detail.repsLabel,
+                detail.rirGoal,
+            )
+        detail.weightLabel != null ->
+            stringResource(R.string.workout_coach_set_detail_weight_only, detail.weightLabel, detail.rirGoal)
+        detail.repsLabel.isNotEmpty() ->
+            stringResource(R.string.workout_coach_set_detail_bodyweight, detail.repsLabel, detail.rirGoal)
+        else -> stringResource(R.string.workout_coach_set_detail_rir_only, detail.rirGoal)
+    }
 }
 
 @Composable
@@ -392,21 +472,7 @@ private fun RestPaneBody(
                         style = StratumThemeAccessor.typography.titleMedium,
                     )
                     StratumText(
-                        text =
-                            if (set.recommendedWeightLabel.isNotBlank()) {
-                                stringResource(
-                                    R.string.workout_coach_set_detail,
-                                    set.recommendedWeightLabel,
-                                    set.recommendedRepsLabel,
-                                    set.rirGoal,
-                                )
-                            } else {
-                                stringResource(
-                                    R.string.workout_coach_set_detail_bodyweight,
-                                    set.recommendedRepsLabel,
-                                    set.rirGoal,
-                                )
-                            },
+                        text = upNextDetailText(set),
                         muted = true,
                     )
                 }

@@ -241,6 +241,12 @@ data class RenderedSetUi(
     val recommendedReps: Int,
     val hasLiveRepsRecommendation: Boolean = false,
     val isProjected: Boolean = false,
+    /**
+     * The mapper's canonical reps gating, stored where the label is made: true when
+     * [recommendedRepsLabel] is a concrete count (live recommendation, prior
+     * performance, or projection); false when it is the range fallback or blank.
+     */
+    val showConcreteReps: Boolean = false,
     val loggedRir: Int? = null,
     /**
      * Whether this set row shows an editable weight cell. False for bodyweight lifts — the
