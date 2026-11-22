@@ -1,1 +1,1 @@
-The rest timer is a ring that empties as your rest runs down, with the time left in the middle.
+The blur on glass panels is updated.
