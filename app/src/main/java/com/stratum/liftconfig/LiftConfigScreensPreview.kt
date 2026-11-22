@@ -560,6 +560,47 @@ internal fun ManageEquipmentDeletePickerPreviewContent(
 }
 
 /** STR-334: the Bodyweight fallback with more affected lifts than the preview shows. */
+/**
+ * STR-335 stress case: 62 linked lifts, the pile that overflowed the old
+ * dialog. The sheet golden must show the list capped in its scroll region
+ * with the replacement row and the actions still on screen.
+ */
+internal fun previewManageEquipmentReassigningStress(): ManageEquipmentUiState =
+    previewManageEquipment().copy(
+        pendingDelete =
+            PendingDeleteUi(
+                id = "eq-hoist",
+                name = "Hoist Low-Row",
+                affectedLiftNames =
+                    listOf(
+                        "Bayesian Curl",
+                        "Bicep Curl (Cable EZ Bar)",
+                        "Bicep Curl (Cable Single-Arm)",
+                        "Cable Chest Fly",
+                        "Cable Crossover",
+                        "Cable Crunch",
+                        "Cable Row (Mid Neutral Grip)",
+                        "Face Pull",
+                        "Lat Pushdown",
+                        "Overhead Cable Extension",
+                        "Cable Lateral Raise",
+                        "Reverse Cable Fly",
+                    ) + (13..62).map { "Cable Lift $it" },
+                affectedWorkouts =
+                    listOf(
+                        AffectedWorkoutUi(name = "Pull Day", slotCount = 3),
+                        AffectedWorkoutUi(name = "Arms Finisher", slotCount = 1),
+                    ),
+                candidates =
+                    listOf(
+                        ReplacementOptionUi(id = "eq-barbell", name = "Olympic Barbell"),
+                        ReplacementOptionUi(id = "eq-cable-cross", name = "Cable crossover"),
+                        ReplacementOptionUi(id = "eq-lat-stack", name = "Lat pulldown stack"),
+                    ),
+                selectedReplacementId = "eq-barbell",
+            ),
+    )
+
 internal fun previewManageEquipmentFallbackManyAffected(): ManageEquipmentUiState =
     previewManageEquipment().copy(
         pendingDelete =

@@ -192,6 +192,26 @@ fun manageEquipmentDeleteSheetNoPickNeo() {
 @PreviewTest
 @PreviewLightDark
 @Composable
+fun manageEquipmentDeleteSheetStressTonal() {
+    ManageEquipmentDeleteSheetPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewManageEquipmentReassigningStress(),
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentDeleteSheetStressNeo() {
+    ManageEquipmentDeleteSheetPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        state = previewManageEquipmentReassigningStress(),
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
 fun manageEquipmentDeletePickerLongListTonal() {
     ManageEquipmentDeletePickerPreviewContent(
         family = StratumThemeId.Tonal,
