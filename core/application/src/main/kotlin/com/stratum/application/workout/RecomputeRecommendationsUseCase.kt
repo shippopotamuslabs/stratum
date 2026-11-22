@@ -27,6 +27,7 @@ import com.stratum.domain.workout.RenderedWorkout
 import com.stratum.domain.workout.RenderedWorkoutLift
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SetSlotId
+import com.stratum.domain.workout.LoadFreeSetRecommendationPolicy
 import com.stratum.domain.workout.StraightSetRecommendationPolicy
 import com.stratum.domain.workout.fatigueSetIndex
 import com.stratum.domain.workout.remainingCountAfterPerformanceAnchor
@@ -89,6 +90,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
     private val estimateDropSetWeight: EstimateDropSetWeightUseCase = EstimateDropSetWeightUseCase(),
     private val straightSetPolicy: StraightSetRecommendationPolicy =
         StraightSetRecommendationPolicy(recommendationEngine, fatigueModel),
+    private val loadFreeSetPolicy: LoadFreeSetRecommendationPolicy = LoadFreeSetRecommendationPolicy(),
 ) {
     /**
      * @param priorRecommendations previous overlay live recs (from last recompute). **Required** —
@@ -131,8 +133,11 @@ class RecomputeRecommendationsUseCase @Inject constructor(
             when (lift.loadType) {
                 LoadType.Weighted -> results += straightSetPolicy.coldOpenReps(setsByPosition, fatigue)
                 LoadType.Bodyweight ->
-                    results += straightSetPolicy.coldOpenBodyweightReps(setsByPosition, fatigue)
-                LoadType.Assisted -> Unit // unchanged: no live straight-set recs (out of scope for STR-29)
+                    results += loadFreeSetPolicy.coldOpenBodyweightReps(setsByPosition, fatigue)
+                // Assisted cold open stays unseeded: the snapshot caps assistance at
+                // 0 and programs carry no planned assistance, so there is no amount
+                // to carry until the first set is logged (STR-326).
+                LoadType.Assisted -> Unit
             }
             val unloggedDrops = setsByPosition.filter {
                 it.loggedValue == null && it.setType == SetType.DropSet
@@ -184,7 +189,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
                         )
                 LoadType.Bodyweight ->
                     results +=
-                        straightSetPolicy.recommendBodyweight(
+                        loadFreeSetPolicy.recommendBodyweight(
                             lastPerformedSet = lastPerformedSet,
                             lastPerformed = lastPerformed,
                             setsByPosition = setsByPosition,
@@ -193,7 +198,17 @@ class RecomputeRecommendationsUseCase @Inject constructor(
                             fatigue = fatigue,
                             priorRecommendations = priorRecommendations,
                         )
-                LoadType.Assisted -> Unit // unchanged: no live straight-set recs (out of scope for STR-29)
+                LoadType.Assisted ->
+                    results +=
+                        loadFreeSetPolicy.recommendAssisted(
+                            lastPerformedSet = lastPerformedSet,
+                            lastPerformed = lastPerformed,
+                            setsByPosition = setsByPosition,
+                            anchorOrdinal = anchorOrdinal,
+                            straightUpcoming = straightUpcoming,
+                            fatigue = fatigue,
+                            priorRecommendations = priorRecommendations,
+                        )
             }
         }
 
