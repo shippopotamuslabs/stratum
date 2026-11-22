@@ -48,6 +48,42 @@ class ProgramSheetLiftClipboardTest {
     }
 
     @Test
+    @DisplayName("Given a lift moved out and back live then exactly one copy exists after each hop (STR-324)")
+    fun moveOutAndBackKeepsExactlyOneCopy() {
+        val days =
+            listOf(
+                day("from", listOf(schemeLift("keep", 0), schemeLift("move", 1))),
+                day("to", listOf(schemeLift("there", 0))),
+            )
+
+        // The inspector Move To call shape: the lift is live in its source day,
+        // so no detached snapshot is passed and the move removes before inserting.
+        val movedOut =
+            moveProgramSheetLift(
+                days = days,
+                fromDayId = "from",
+                toDayId = "to",
+                workoutLiftId = "move",
+                targetPosition = 1,
+            )
+        assertEquals(1, occurrences(movedOut, "move"))
+        assertEquals(listOf("keep"), ids(movedOut, "from"))
+        assertEquals(listOf("there", "move"), ids(movedOut, "to"))
+
+        val movedBack =
+            moveProgramSheetLift(
+                days = movedOut,
+                fromDayId = "to",
+                toDayId = "from",
+                workoutLiftId = "move",
+                targetPosition = 1,
+            )
+        assertEquals(1, occurrences(movedBack, "move"))
+        assertEquals(listOf("keep", "move"), ids(movedBack, "from"))
+        assertEquals(listOf("there"), ids(movedBack, "to"))
+    }
+
+    @Test
     @DisplayName("Given a superset pair when one lift moves then both lose the group")
     fun moveOutOfPairClearsBothGroups() {
         val days =
@@ -720,6 +756,11 @@ class ProgramSheetLiftClipboardTest {
 
     private fun ids(days: List<CreateProgramDayUi>, dayId: String): List<String> =
         lifts(days, dayId).map { lift -> lift.workoutLiftId }
+
+    private fun occurrences(days: List<CreateProgramDayUi>, workoutLiftId: String): Int =
+        days.sumOf { day ->
+            day.editState?.lifts?.count { lift -> lift.workoutLiftId == workoutLiftId } ?: 0
+        }
 
     private fun groups(days: List<CreateProgramDayUi>, dayId: String): List<String?> =
         lifts(days, dayId).map { lift -> lift.supersetGroupId }

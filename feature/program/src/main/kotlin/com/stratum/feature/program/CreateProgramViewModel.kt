@@ -459,7 +459,6 @@ class CreateProgramViewModel @Inject constructor(
                 toDayId = toDayId,
                 workoutLiftId = workoutLiftId,
                 targetPosition = targetEdit.lifts.size,
-                detachedLift = lift,
             )
         if (next === days) return
         val clip =
