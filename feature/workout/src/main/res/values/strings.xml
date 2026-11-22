@@ -10,6 +10,7 @@
     <string name="workout_coach_rest_skip">Skip rest</string>
     <string name="workout_coach_rest_idle">No rest running. Finish a set and the timer starts here.</string>
     <string name="workout_coach_last_session">Last session</string>
+    <string name="workout_coach_today">Today</string>
     <string name="workout_coach_set_label">Set %1$s</string>
     <string name="workout_coach_top_set">Top set</string>
     <string name="workout_coach_total_reps">Total reps</string>
@@ -17,6 +18,7 @@
     <string name="workout_coach_recommendation">Recommendation · %1$s</string>
     <string name="workout_coach_recommendation_body_history">Auto-applied to your set fields. Last session\'s top set was %1$s.</string>
     <string name="workout_coach_recommendation_body">Auto-applied to your set fields.</string>
+    <string name="workout_coach_recommendation_body_today">Auto-applied to your set fields. Today\'s top set so far is %1$s.</string>
     <string name="workout_coach_recommendation_source">From your logged RIR and set history.</string>
     <string name="workout_coach_elapsed">Elapsed</string>
     <string name="workout_coach_sets_label">Sets logged</string>
