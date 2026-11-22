@@ -86,6 +86,39 @@ subprojects {
             .getOrElse(1)
     }
 
+    // Robolectric 4.18 removed @TextLayoutMode. apter 0.9.0 (latest) still
+    // registers JUnit5TextLayoutModeConfigurer, and ServiceLoader crashes the
+    // worker when that parent class is missing. Nothing in this repo uses the
+    // annotation, so drop that one provider from the test jar.
+    plugins.withId("tech.apter.junit5.jupiter.robolectric-extension-gradle-plugin") {
+        val apterJar = configurations.create("apterRobolectricExtensionJar") {
+            isCanBeResolved = true
+            isCanBeConsumed = false
+            isTransitive = false
+        }
+        dependencies.add("apterRobolectricExtensionJar", libs.apter.junit5.robolectric.extension)
+        configurations.named("testImplementation").configure {
+            exclude(group = "tech.apter.junit5.jupiter", module = "robolectric-extension")
+        }
+        val stripped = tasks.register<StripRobolectricTextLayoutConfigurer>(
+            "stripRobolectricTextLayoutConfigurer",
+        ) {
+            sourceJar.set(project.layout.file(apterJar.elements.map { it.single().asFile }))
+            strippedJar.set(
+                project.layout.buildDirectory.file(
+                    "generated/apter/robolectric-extension-stripped.jar",
+                ),
+            )
+        }
+        dependencies.add("testImplementation", files(stripped.flatMap { it.strippedJar }))
+        // The exclude above drops apter's transitives. kotlin-reflect is the one
+        // the JUnit 5 extension needs and nothing else on the test classpath brings.
+        dependencies.add(
+            "testImplementation",
+            "org.jetbrains.kotlin:kotlin-reflect:${libs.versions.kotlin.get()}",
+        )
+    }
+
     // NOTE: assemble intentionally does NOT depend on detekt. Static analysis is
     // gated by the detekt CI job (required pipeline) instead, so local builds
     // and CI assemble jobs stay fast. Run ./gradlew detekt explicitly.
@@ -97,6 +130,51 @@ subprojects {
                 attributes {
                     attribute(buildTypeAttr, "debug")
                     attribute(artifactTypeAttr, "jar")
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Robolectric 4.18 deleted [org.robolectric.plugins.TextLayoutModeConfigurer].
+ * apter 0.9.0 still lists its subclass in ServiceLoader metadata. This task
+ * copies that jar without the dead provider. A [Jar] copySpec cannot do it
+ * without capturing [org.gradle.api.Project], which the configuration cache rejects.
+ */
+abstract class StripRobolectricTextLayoutConfigurer : DefaultTask() {
+    @get:InputFile
+    abstract val sourceJar: RegularFileProperty
+
+    @get:OutputFile
+    abstract val strippedJar: RegularFileProperty
+
+    @TaskAction
+    fun strip() {
+        val input = sourceJar.get().asFile
+        val output = strippedJar.get().asFile
+        output.parentFile.mkdirs()
+        java.util.zip.ZipFile(input).use { zip ->
+            java.util.zip.ZipOutputStream(output.outputStream()).use { out ->
+                val entries = zip.entries()
+                while (entries.hasMoreElements()) {
+                    val entry = entries.nextElement()
+                    if (entry.name.endsWith("JUnit5TextLayoutModeConfigurer.class")) continue
+                    val raw = zip.getInputStream(entry).use { it.readBytes() }
+                    val payload =
+                        if (entry.name == "META-INF/services/org.robolectric.pluginapi.config.Configurer") {
+                            raw.decodeToString()
+                                .lineSequence()
+                                .filterNot { line -> line.contains("JUnit5TextLayoutModeConfigurer") }
+                                .joinToString("\n")
+                                .let { text -> if (text.endsWith("\n") || text.isEmpty()) text else "$text\n" }
+                                .toByteArray()
+                        } else {
+                            raw
+                        }
+                    out.putNextEntry(java.util.zip.ZipEntry(entry.name))
+                    out.write(payload)
+                    out.closeEntry()
                 }
             }
         }

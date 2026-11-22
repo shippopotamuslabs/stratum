@@ -47,7 +47,9 @@ val derivedVersionCode: Int = try {
 android {
     namespace = "com.stratum"
     compileSdk {
-        version = release(37)
+        version = release(37) {
+            minorApiLevel = 2
+        }
     }
 
     defaultConfig {

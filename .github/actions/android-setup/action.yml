@@ -51,8 +51,7 @@ runs:
         # Best-effort license acceptance (output kept out of the log); the
         # install fails loudly if a license is genuinely missing.
         yes | sdkmanager --licenses > /dev/null 2>&1 || true
-        # The app compiles against 37, published as android-37.0 on the
-        # preview channel (3); fall back to the default channel in case it
-        # has graduated. Output is NOT silenced — a failed install must
-        # say why in the log.
-        sdkmanager --channel=3 "platforms;android-37.0" || sdkmanager "platforms;android-37.0"
+        # compileSdk 37.2. Fall back to the preview channel if the default
+        # channel does not list it yet. Output is NOT silenced — a failed
+        # install must say why in the log.
+        sdkmanager "platforms;android-37.2" || sdkmanager --channel=3 "platforms;android-37.2"
