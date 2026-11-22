@@ -233,8 +233,11 @@ internal fun recommendationHeadingSuffix(
             null
         }
     if (delta == null || delta == 0.0) return firstSet.recommendedWeightLabel
+    val formatted = formatWeightAmount(kotlin.math.abs(delta))
+    // A delta under display precision rounds to zero; the weight reads better.
+    if (formatted.isEmpty() || formatted == "0") return firstSet.recommendedWeightLabel
     val sign = if (delta > 0) "+" else "-"
-    return "$sign${formatWeightAmount(kotlin.math.abs(delta))} $unit"
+    return "$sign$formatted $unit"
 }
 
 @Composable
@@ -397,15 +400,17 @@ internal data class UpNextDetail(
 )
 
 /**
- * Reps come from the concrete recommendation when there is one and fall back
- * to the configured range on a cold start, where the reps label is blank.
+ * Reps read the mapper's labels under its canonical gating: the concrete
+ * count only when [RenderedSetUi.showConcreteReps] says the recommendation
+ * is concrete, otherwise the configured range label. A cold-start snapshot
+ * can carry a baseline rep count that is not a concrete recommendation.
  */
 internal fun upNextDetail(set: RenderedSetUi): UpNextDetail {
     val reps =
         when {
-            set.recommendedReps > 0 -> set.recommendedReps.toString()
-            set.repMin > 0 || set.repMax > 0 -> "${set.repMin}–${set.repMax}"
-            else -> ""
+            set.showConcreteReps -> set.recommendedRepsLabel
+            !set.repRangeLabel.isNullOrBlank() -> set.repRangeLabel
+            else -> set.recommendedRepsLabel
         }
     return UpNextDetail(
         weightLabel = set.recommendedWeightLabel.takeIf { label -> label.isNotBlank() },

@@ -8,20 +8,23 @@ import org.junit.jupiter.api.Test
 class WorkoutCoachDetailTest {
     private fun set(
         recommendedWeightLabel: String = "",
+        recommendedRepsLabel: String = "",
+        repRangeLabel: String = "",
         recommendedReps: Int = 0,
         recommendedWeightAmount: Double = 0.0,
         repMin: Int = 0,
         repMax: Int = 0,
+        showConcreteReps: Boolean = false,
         rirGoal: Int = 2,
     ): RenderedSetUi =
         RenderedSetUi(
             slotKey = "s",
             positionLabel = "1",
             setTypeLabel = "S",
-            repRangeLabel = "",
+            repRangeLabel = repRangeLabel,
             rirLabel = "",
             recommendedWeightLabel = recommendedWeightLabel,
-            recommendedRepsLabel = "",
+            recommendedRepsLabel = recommendedRepsLabel,
             loggedWeightLabel = null,
             loggedRepsLabel = null,
             isComplete = false,
@@ -30,13 +33,19 @@ class WorkoutCoachDetailTest {
             repMax = repMax,
             recommendedWeightAmount = recommendedWeightAmount,
             recommendedReps = recommendedReps,
+            showConcreteReps = showConcreteReps,
         )
 
     @Test
     fun upNextUsesConcreteRecommendation() {
         val detail =
             upNextDetail(
-                set(recommendedWeightLabel = "185 lb", recommendedReps = 5, repMin = 5, repMax = 5),
+                set(
+                    recommendedWeightLabel = "185 lb",
+                    recommendedRepsLabel = "5",
+                    repRangeLabel = "5",
+                    showConcreteReps = true,
+                ),
             )
         assertEquals("185 lb", detail.weightLabel)
         assertEquals("5", detail.repsLabel)
@@ -44,15 +53,31 @@ class WorkoutCoachDetailTest {
     }
 
     @Test
-    fun upNextColdStartFallsBackToRange() {
-        val detail = upNextDetail(set(repMin = 8, repMax = 12))
+    fun upNextColdStartBaselineIsNotConcrete() {
+        // The snapshot baseline carries repMin as the rep count with no live
+        // recommendation, no prior performance and no projection: the mapper
+        // gates it out, and the card shows the range like the set table does.
+        val detail =
+            upNextDetail(
+                set(
+                    recommendedRepsLabel = "8-12",
+                    repRangeLabel = "8-12",
+                    recommendedReps = 8,
+                    repMin = 8,
+                    repMax = 12,
+                    showConcreteReps = false,
+                ),
+            )
         assertNull(detail.weightLabel)
-        assertEquals("8–12", detail.repsLabel)
+        assertEquals("8-12", detail.repsLabel)
     }
 
     @Test
-    fun upNextBodyweightKeepsReps() {
-        val detail = upNextDetail(set(recommendedReps = 10, repMin = 8, repMax = 12))
+    fun upNextBodyweightConcreteReps() {
+        val detail =
+            upNextDetail(
+                set(recommendedRepsLabel = "10", repRangeLabel = "8-12", showConcreteReps = true),
+            )
         assertNull(detail.weightLabel)
         assertEquals("10", detail.repsLabel)
     }
@@ -77,6 +102,17 @@ class WorkoutCoachDetailTest {
                 unit = "lb",
             )
         assertEquals("-5 lb", suffix)
+    }
+
+    @Test
+    fun recommendationSuffixSubPrecisionDeltaFallsBackToWeight() {
+        val suffix =
+            recommendationHeadingSuffix(
+                set(recommendedWeightLabel = "185 lb", recommendedWeightAmount = 185.04),
+                topSetWeight = 185.0,
+                unit = "lb",
+            )
+        assertEquals("185 lb", suffix)
     }
 
     @Test
