@@ -74,6 +74,7 @@ fun ProgramsRoute(
                     },
                     onConfirmDiscardAndStart = viewModel::confirmDiscardAndStart,
                     onExpandedWorkoutChange = viewModel::setExpandedWorkout,
+                    onSelectWorkout = viewModel::selectWorkout,
                 ),
             onSwapLiftClick = { workoutId, target ->
                 onSwapLiftClick(workoutId, target.workoutLiftId, target.liftId, target.name)

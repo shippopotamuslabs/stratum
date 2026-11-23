@@ -105,6 +105,64 @@ class NextWorkoutSelectionTest {
         assertNull(findNextWorkoutId(schedule))
     }
 
+    @Test
+    @DisplayName("resolveSelectedWorkoutId keeps a picked day that is still scheduled")
+    fun resolveSelectedWorkoutId_keepsPickedDay() {
+        assertEquals("w-done", resolveSelectedWorkoutId(twoPaneSchedule(), "w-done"))
+    }
+
+    @Test
+    @DisplayName("resolveSelectedWorkoutId defaults to the next workout day")
+    fun resolveSelectedWorkoutId_defaultsToNext() {
+        assertEquals("w-next", resolveSelectedWorkoutId(twoPaneSchedule(), null))
+    }
+
+    @Test
+    @DisplayName("resolveSelectedWorkoutId drops a pick that left the schedule")
+    fun resolveSelectedWorkoutId_dropsStalePick() {
+        assertEquals("w-next", resolveSelectedWorkoutId(twoPaneSchedule(), "w-deleted"))
+    }
+
+    @Test
+    @DisplayName("resolveSelectedWorkoutId falls back to the first day once the cycle is done")
+    fun resolveSelectedWorkoutId_fallsBackToFirstDay() {
+        val schedule =
+            listOf(
+                ScheduleItemState.RestDay(slotIndex = 0),
+                workoutItem(id = "w-a", completed = true),
+                workoutItem(id = "w-b", completed = true),
+            )
+        assertEquals("w-a", resolveSelectedWorkoutId(schedule, null))
+    }
+
+    @Test
+    @DisplayName("resolveSelectedWorkoutId is null with no workout days")
+    fun resolveSelectedWorkoutId_nullWithoutWorkouts() {
+        assertNull(resolveSelectedWorkoutId(listOf(ScheduleItemState.RestDay(slotIndex = 0)), "w-a"))
+    }
+
+    private fun twoPaneSchedule(): List<ScheduleItemState> =
+        listOf(
+            workoutItem(id = "w-done", completed = true),
+            ScheduleItemState.RestDay(slotIndex = 1),
+            workoutItem(id = "w-next"),
+        )
+
+    private fun workoutItem(
+        id: String,
+        completed: Boolean = false,
+    ): ScheduleItemState.Workout =
+        ScheduleItemState.Workout(
+            workout =
+                WorkoutViewState(
+                    workoutId = id,
+                    name = "Day $id",
+                    position = 0,
+                    lifts = listOf(sampleLift("wl-$id")),
+                    isCompleted = completed,
+                ),
+        )
+
     private fun sampleLift(workoutLiftId: String): WorkoutLiftLineState =
         WorkoutLiftLineState(
             workoutLiftId = workoutLiftId,

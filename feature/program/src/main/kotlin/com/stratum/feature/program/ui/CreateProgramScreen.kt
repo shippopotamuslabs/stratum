@@ -49,6 +49,9 @@ import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.posture.FoldPosture
+import com.stratum.core.ui.posture.HingeGap
+import com.stratum.core.ui.posture.rememberFoldPosture
 import com.stratum.core.ui.progress.ProgramGenerationProgressUi
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -58,8 +61,6 @@ import com.stratum.core.ui.trainingsetup.MinimumVolumePreferencesScreen
 import com.stratum.core.ui.trainingsetup.SchedulePreferencesScreen
 import com.stratum.core.ui.trainingsetup.SpecializationPreferencesScreen
 import com.stratum.feature.program.ActiveSessionDiscardReason
-import com.stratum.feature.program.SheetHingeGap
-import com.stratum.feature.program.SheetPosture
 import com.stratum.feature.program.CreateProgramGenerateState
 import com.stratum.feature.program.CreateProgramStep
 import com.stratum.feature.program.CreateProgramUiState
@@ -104,7 +105,7 @@ private fun rememberSheetInspectorState(isEditor: Boolean): ProgramSheetInspecto
 }
 
 private fun sheetTitleShift(
-    hinge: SheetHingeGap?,
+    hinge: HingeGap?,
     isEditor: Boolean,
     screenWidthDp: Int,
 ): Dp {
@@ -121,9 +122,9 @@ fun CreateProgramScreen(
     sheetUndoEpoch: Int = 0,
 ) {
     val isEditor = state.step == CreateProgramStep.Editor
-    val posture = rememberSheetPosture()
+    val posture = rememberFoldPosture()
     val inspector = rememberSheetInspectorState(isEditor)
-    val hinge = (posture as? SheetPosture.TwoPane)?.hinge
+    val hinge = (posture as? FoldPosture.TwoPane)?.hinge
     val titleShift =
         sheetTitleShift(
             hinge = hinge,
@@ -205,7 +206,7 @@ fun CreateProgramScreen(
                     if (isEditor) {
                         {
                             CreateProgramEditorTopBarActions(
-                                twoPane = posture is SheetPosture.TwoPane,
+                                twoPane = posture is FoldPosture.TwoPane,
                                 onShowDashboard = inspector::returnToDashboard,
                                 onShowProgramOptions = {
                                     programOptionsMode = CreateProgramOptionsMode.Menu

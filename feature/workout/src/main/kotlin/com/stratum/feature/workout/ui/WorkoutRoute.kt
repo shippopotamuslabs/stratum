@@ -30,15 +30,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.component.StratumTwoPane
 import com.stratum.core.ui.component.SupersetLinkDirection
 import com.stratum.core.ui.component.UserMessageEffect
+import com.stratum.core.ui.posture.FoldPosture
+import com.stratum.core.ui.posture.rememberFoldPosture
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.feature.workout.LiveSetKind
-import com.stratum.feature.workout.WorkoutPosture
 import com.stratum.feature.workout.WorkoutViewModel
 import com.stratum.feature.workout.notification.RestTimerState
 import kotlinx.coroutines.delay
@@ -102,7 +104,7 @@ fun WorkoutRoute(
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingSetLogged by remember { mutableStateOf<WorkoutUiEvent.SetLogged?>(null) }
     var failedLogSlotKey by remember { mutableStateOf<String?>(null) }
-    val posture = rememberWorkoutPosture()
+    val posture = rememberFoldPosture()
     var coachTab by remember { mutableStateOf(WorkoutCoachTab.Coach) }
     var primaryLiftId by remember { mutableStateOf<String?>(null) }
     var liftFocusRequest by remember { mutableStateOf<LiftFocusRequest?>(null) }
@@ -111,7 +113,7 @@ fun WorkoutRoute(
     // ending (timer finish or skip) returns to Coach. Manual tab taps win: the
     // return only fires while the pane still shows Rest.
     LaunchedEffect(pendingSetLogged) {
-        if (pendingSetLogged != null && posture is WorkoutPosture.TwoPane) {
+        if (pendingSetLogged != null && posture is FoldPosture.TwoPane) {
             coachTab = WorkoutCoachTab.Rest
         }
     }
@@ -278,11 +280,11 @@ fun WorkoutRoute(
                 modifier = screenModifier,
             )
             }
-            WorkoutCoachPanes(
+            StratumTwoPane(
                 posture = posture,
                 modifier = modifier,
-                workout = { workoutScreen(Modifier) },
-                coach = {
+                primary = { workoutScreen(Modifier) },
+                detail = {
                     WorkoutCoachPane(
                         state = state,
                         primaryLiftId = primaryLiftId,

@@ -1,4 +1,4 @@
-package com.stratum.feature.program.ui
+package com.stratum.core.ui.posture
 
 import android.app.Activity
 import android.content.Context
@@ -13,20 +13,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
 import androidx.window.layout.WindowMetricsCalculator
-import com.stratum.feature.program.SheetFoldSnapshot
-import com.stratum.feature.program.SheetFoldState
-import com.stratum.feature.program.SheetHingeAxis
-import com.stratum.feature.program.SheetPosture
-import com.stratum.feature.program.decideSheetPosture
 
 /**
  * Preview and screenshot override. Production leaves this null and reads the window.
  */
-internal val LocalSheetPosture = staticCompositionLocalOf<SheetPosture?> { null }
+val LocalFoldPosture = staticCompositionLocalOf<FoldPosture?> { null }
 
 @Composable
-internal fun rememberSheetPosture(): SheetPosture {
-    LocalSheetPosture.current?.let { return it }
+fun rememberFoldPosture(): FoldPosture {
+    LocalFoldPosture.current?.let { return it }
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
     val fold = activity?.let { rememberFoldSnapshot(it) }
@@ -38,11 +33,11 @@ internal fun rememberSheetPosture(): SheetPosture {
                 WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(activity).bounds.width()
             with(LocalDensity.current) { widthPx.toDp() }.value.toInt()
         }
-    return decideSheetPosture(widthDp = widthDp, fold = fold)
+    return decideFoldPosture(widthDp = widthDp, fold = fold)
 }
 
 @Composable
-private fun rememberFoldSnapshot(activity: Activity): SheetFoldSnapshot? {
+private fun rememberFoldSnapshot(activity: Activity): FoldSnapshot? {
     val layoutInfo =
         remember(activity) {
             WindowInfoTracker.getOrCreate(activity).windowLayoutInfo(activity)
@@ -54,23 +49,23 @@ private fun rememberFoldSnapshot(activity: Activity): SheetFoldSnapshot? {
         } ?: features.filterIsInstance<FoldingFeature>().firstOrNull()
     val widthPx =
         WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(activity).bounds.width()
-    return feature?.toSheetFoldSnapshot(widthPx)
+    return feature?.toFoldSnapshot(widthPx)
 }
 
-internal fun FoldingFeature.toSheetFoldSnapshot(windowWidthPx: Int): SheetFoldSnapshot {
+fun FoldingFeature.toFoldSnapshot(windowWidthPx: Int): FoldSnapshot {
     val foldState =
         if (state == FoldingFeature.State.FLAT) {
-            SheetFoldState.Flat
+            FoldState.Flat
         } else {
-            SheetFoldState.HalfOpened
+            FoldState.HalfOpened
         }
     val axis =
         if (orientation == FoldingFeature.Orientation.VERTICAL) {
-            SheetHingeAxis.Vertical
+            HingeAxis.Vertical
         } else {
-            SheetHingeAxis.Horizontal
+            HingeAxis.Horizontal
         }
-    return SheetFoldSnapshot(
+    return FoldSnapshot(
         state = foldState,
         axis = axis,
         hingeLeftPx = bounds.left,

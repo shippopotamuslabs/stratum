@@ -142,18 +142,27 @@ class ProgramsViewModel @Inject constructor(
         }
 
     /**
+     * Two-pane day selection (STR-332). Transient UI state, so it lives here for the
+     * session and is never persisted; the ViewModel outlives fold changes and tab
+     * switches, which keeps the selection across both.
+     */
+    private val selectedWorkoutId = MutableStateFlow<String?>(null)
+
+    /**
      * Single public state flow for the Programs screen (ARCHITECTURE.md §4.1). The
      * minimized-bar assembly lives in [ObserveMinimizedWorkoutBarUseCase] (§4.4); this
-     * pipeline only folds the bar read model and the persisted expansion id into the
-     * presentation state at the boundary. Expansion stays independent of program load
-     * so editing/swapping lifts does not force a different card open.
+     * pipeline only folds the bar read model, the persisted expansion id, and the
+     * session day selection into the presentation state at the boundary. Expansion
+     * stays independent of program load so editing/swapping lifts does not force a
+     * different card open.
      */
     val programsUiState: StateFlow<ProgramsUiState> =
         combine(
             programBase,
             observeMinimizedBar(),
             observeProgramsUiPreferences(),
-        ) { base, bar, prefs ->
+            selectedWorkoutId,
+        ) { base, bar, prefs, selectedId ->
             val activeBar = bar?.toMinimizedWorkoutState()
             when (base) {
                 is ProgramsUiState.Empty -> base.copy(activeBar = activeBar)
@@ -161,6 +170,7 @@ class ProgramsViewModel @Inject constructor(
                     base.copy(
                         activeBar = activeBar,
                         expandedWorkoutId = prefs.expandedWorkoutId,
+                        selectedWorkoutId = selectedId,
                     )
             }
         }.stateIn(
@@ -184,6 +194,11 @@ class ProgramsViewModel @Inject constructor(
                 diagnosticDrain.drain(result.diagnostics)
             }
         }
+    }
+
+    /** Picks the day shown in the two-pane detail pane. */
+    fun selectWorkout(workoutId: String) {
+        selectedWorkoutId.value = workoutId
     }
 
     private val _events = Channel<ProgramsUiEvent>(Channel.BUFFERED)

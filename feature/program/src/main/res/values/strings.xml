@@ -14,6 +14,14 @@
     <string name="programs_menu_program_library">Program Library</string>
     <string name="programs_calendar_content_description">Workout calendar</string>
     <string name="programs_menu_content_description">Program options</string>
+    <!-- Program screen two-pane (STR-332): week rows on the left, the picked day on the right -->
+    <string name="programs_day_next">Next</string>
+    <string name="programs_day_done">Done</string>
+    <plurals name="programs_day_lift_count">
+        <item quantity="one">%d lift</item>
+        <item quantity="other">%d lifts</item>
+    </plurals>
+    <string name="programs_day_pane_empty">No workout days in this program.</string>
 
     <!-- Program Library -->
     <string name="program_library_title">Program Library</string>

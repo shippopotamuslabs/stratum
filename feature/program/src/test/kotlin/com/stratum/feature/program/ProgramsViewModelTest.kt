@@ -493,6 +493,26 @@ class ProgramsViewModelTest {
         }
 
         @Test
+        fun `selectWorkout keeps the two-pane day in memory without persisting it`() = runTest {
+            val uiPrefs = FakeProgramsUiPreferencesRepository()
+            val viewModel = buildViewModel(initial = PROGRAM_PPL, uiPrefs = uiPrefs)
+
+            viewModel.programsUiState.test {
+                val initial = awaitItem() as ProgramsUiState.Loaded
+                assertNull(initial.selectedWorkoutId)
+
+                viewModel.selectWorkout("w-2")
+                advanceUntilIdle()
+
+                val selected = awaitItem() as ProgramsUiState.Loaded
+                assertEquals("w-2", selected.selectedWorkoutId)
+                assertNull(selected.expandedWorkoutId)
+                assertNull(uiPrefs.current.expandedWorkoutId)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
         fun `setExpandedWorkout null clears the expanded card`() = runTest {
             val uiPrefs =
                 FakeProgramsUiPreferencesRepository(
