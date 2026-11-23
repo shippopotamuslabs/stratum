@@ -65,6 +65,8 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.window)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.credentials)
     // Vico 3.x is built on JetBrains Compose Multiplatform, whose KMP facade artifacts
     // (org.jetbrains.compose.*) fight our AndroidX Compose BOM at runtime. We are a native

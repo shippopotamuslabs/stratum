@@ -367,7 +367,7 @@ private fun HistoryTab(
 }
 
 @Composable
-private fun HistoryPersonalRecordCard(
+internal fun HistoryPersonalRecordCard(
     personalRecord: LiftPrUi?,
 ) {
     val colors = StratumThemeAccessor.colors
@@ -447,7 +447,7 @@ private fun HistoryPersonalRecordCard(
 private val HistoryPrRirBadgeSize = 20.dp
 
 @Composable
-private fun HistorySessionRow(
+internal fun HistorySessionRow(
     session: LiftHistorySessionUi,
     onToggle: () -> Unit,
 ) {

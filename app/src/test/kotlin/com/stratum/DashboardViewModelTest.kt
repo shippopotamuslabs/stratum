@@ -1,5 +1,6 @@
 package com.stratum
 
+import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.core.testing.dashboard.FakeDashboardPreferencesRepository
 import com.stratum.core.testing.healthconnect.FakeHealthConnectMetricsPort
 import com.stratum.core.testing.healthconnect.FakeHealthConnectPreferencesRepository
@@ -21,6 +22,7 @@ import com.stratum.domain.dashboard.DashboardBoardTab
 import com.stratum.domain.dashboard.DashboardPreferences
 import com.stratum.application.dashboard.LoadDashboardUseCase
 import com.stratum.application.dashboard.LoadGraphDetailUseCase
+import com.stratum.application.dashboard.LoadMuscleDetailUseCase
 import com.stratum.application.dashboard.ObserveDashboardPreferencesUseCase
 import com.stratum.application.dashboard.ObserveDashboardStateUseCase
 import com.stratum.application.healthconnect.LoadHealthConnectMetricsUseCase
@@ -696,6 +698,83 @@ class DashboardViewModelTest {
     }
 
     @Test
+    @DisplayName("two-pane: defaults to the first muscle and loads its detail only while the pane is visible")
+    fun paneDefaultsToFirstMuscle() = runTest {
+        val viewModel = paneViewModel()
+
+        val selection = viewModel.uiState.value.pane.selection
+        assertEquals(DashboardPaneSelectionUi.Muscle("Chest"), selection)
+        assertEquals(MuscleDetailPaneUiState.Loading, viewModel.uiState.value.pane.muscleDetail)
+
+        viewModel.setDetailPaneVisible(true)
+
+        val detail = viewModel.uiState.value.pane.muscleDetail as MuscleDetailPaneUiState.Loaded
+        assertEquals("Chest", detail.muscleKey)
+        assertEquals(listOf("Bench Press"), detail.lifts.map { it.name })
+        assertEquals("3 sets/wk", detail.lifts.single().setsPerWeekText)
+        assertEquals(1, detail.recentSessions.size)
+    }
+
+    @Test
+    @DisplayName("two-pane: tapping a muscle or lift swaps the selection and keeps it across pane hide/show")
+    fun paneSelectionSwapsAndSurvives() = runTest {
+        val viewModel = paneViewModel()
+        viewModel.setDetailPaneVisible(true)
+
+        viewModel.selectLift("bench")
+        assertEquals(DashboardPaneSelectionUi.Lift("bench"), viewModel.uiState.value.pane.selection)
+
+        // Fold then unfold: the pane hides and returns with the same selection.
+        viewModel.setDetailPaneVisible(false)
+        viewModel.setDetailPaneVisible(true)
+        assertEquals(DashboardPaneSelectionUi.Lift("bench"), viewModel.uiState.value.pane.selection)
+
+        viewModel.selectMuscle("Back")
+        assertEquals(DashboardPaneSelectionUi.Muscle("Back"), viewModel.uiState.value.pane.selection)
+        val detail = viewModel.uiState.value.pane.muscleDetail as MuscleDetailPaneUiState.Loaded
+        assertEquals("Back", detail.muscleKey)
+        assertTrue(detail.lifts.isEmpty())
+    }
+
+    private suspend fun paneViewModel(): DashboardViewModel {
+        val benchId = LiftId("bench")
+        val bench = lift(benchId, "Bench Press", MuscleGroup.Chest)
+        val liftRepo = FakeLiftRepository().apply { seedLifts(listOf(bench)) }
+        val now = Instant.parse("2026-11-18T18:00:00Z")
+        val stimulusRepo = FakeMuscleWeeklyStimulusRepository()
+        stimulusRepo.seed(
+            listOf(
+                stimulus(MuscleGroup.Chest, now.minus(7, ChronoUnit.DAYS), 12.0),
+                stimulus(MuscleGroup.Back, now.minus(7, ChronoUnit.DAYS), 6.0),
+            ),
+        )
+        val trainingLog = FakeTrainingLogRepository().apply { seedLiftForMuscleFilter(bench) }
+        repeat(3) { index ->
+            trainingLog.seedSet(
+                LoggedSet(
+                    id = LoggedSetId("set-$index"),
+                    sessionId = TrainingSessionId("s1"),
+                    exerciseNameRaw = "Bench Press",
+                    liftId = benchId,
+                    setIndex = index,
+                    weight = Weight(100.0, Weight.WeightUnit.Kg),
+                    reps = 8,
+                    rir = 2,
+                    completedAt = now.minus(1, ChronoUnit.DAYS).plusSeconds(index.toLong()),
+                    liftContext = LoggedLiftContext(liftName = "Bench Press"),
+                ),
+            )
+        }
+        return buildViewModel(
+            stimulusRepo = stimulusRepo,
+            liftRepo = liftRepo,
+            trainingLog = trainingLog,
+            programLiftIds = setOf(benchId),
+            now = now,
+        )
+    }
+
+    @Test
     @DisplayName("exposes exactly one public StateFlow: uiState (single-flow contract)")
     fun exposesSingleFlowContract() {
         val flows = DashboardViewModel::class.java.methods
@@ -778,6 +857,11 @@ class DashboardViewModelTest {
         return DashboardViewModel(
             observeDashboardState = observeDashboardState,
             loadGraphDetail = detailUseCase,
+            loadMuscleDetail = LoadMuscleDetailUseCase(
+                trainingLogRepository = trainingLog,
+                liftRepository = liftRepo,
+                programRepository = FakeProgramRepository(program),
+            ),
             setDashboardBoardTab = SetDashboardBoardTabUseCase(
                 dashboardPreferences,
             ),

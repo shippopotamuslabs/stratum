@@ -70,7 +70,8 @@ import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.stratumDockTopRule
 import com.stratum.feature.program.CreateProgramDayUi
-import com.stratum.feature.program.SheetPosture
+import com.stratum.core.ui.component.PanePosture
+import com.stratum.core.ui.component.StratumTwoPane
 import com.stratum.feature.program.CreateProgramUiState
 import com.stratum.feature.program.ProgramSheetClipboard
 import com.stratum.feature.program.ProgramSheetClipboardKind
@@ -115,7 +116,7 @@ internal fun ProgramSheet(
     state: CreateProgramUiState,
     callbacks: CreateProgramScreenCallbacks,
     topClearance: Dp,
-    posture: SheetPosture,
+    posture: PanePosture,
     inspector: ProgramSheetInspectorState,
     modifier: Modifier = Modifier,
 ) {
@@ -125,7 +126,7 @@ internal fun ProgramSheet(
             programSheetRows(state.days, clipboardActive = clipboard != null)
         }
     val selection = LocalProgramSheetSelection.current
-    val twoPane = posture is SheetPosture.TwoPane
+    val twoPane = posture is PanePosture.TwoPane
     val dockHost = remember { EditWorkoutDockHostState() }
     val scroll =
         rememberProgramSheetListScroll(
@@ -326,7 +327,7 @@ private fun sheetLiftStepEnabled(
 }
 
 /**
- * Sheet content inside [ProgramSheetPanes]. Single-pane renders the sheet
+ * Sheet content inside [StratumTwoPane]. Single-pane renders the sheet
  * alone with the tray and bulk host at its foot; two-pane puts the inspector
  * beside it and the tray and bulk host live there instead.
  */
@@ -335,7 +336,7 @@ private fun ProgramSheetFrame(
     state: CreateProgramUiState,
     callbacks: CreateProgramScreenCallbacks,
     scroll: ProgramSheetListScroll,
-    posture: SheetPosture,
+    posture: PanePosture,
     inspector: ProgramSheetInspectorState,
     dockHost: EditWorkoutDockHostState,
     dockHeight: Dp,
@@ -353,7 +354,7 @@ private fun ProgramSheetFrame(
             programSheetRows(state.days, clipboardActive = clipboard != null)
         }
     val selection = LocalProgramSheetSelection.current
-    val twoPane = posture is SheetPosture.TwoPane
+    val twoPane = posture is PanePosture.TwoPane
     // Undo restores the days without touching the selection; keep the
     // selection pointed at the day that actually holds the selected lift.
     LaunchedEffect(state.days) {
@@ -362,10 +363,10 @@ private fun ProgramSheetFrame(
             inspector.selected = reconciled
         }
     }
-    ProgramSheetPanes(
+    StratumTwoPane(
         posture = posture,
         modifier = modifier,
-        inspector = {
+        detail = {
             ProgramSheetInspector(
                 state = state,
                 selected = inspector.selected,
@@ -404,7 +405,7 @@ private fun ProgramSheetFrame(
                 onShowProgressionSchemeInfo = onShowProgressionSchemeInfo,
             )
         },
-        sheet = {
+        primary = {
             Column(modifier = Modifier.fillMaxSize()) {
                 DayTabsRow(
                     days = state.days,

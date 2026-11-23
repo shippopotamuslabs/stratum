@@ -58,8 +58,9 @@ import com.stratum.core.ui.trainingsetup.MinimumVolumePreferencesScreen
 import com.stratum.core.ui.trainingsetup.SchedulePreferencesScreen
 import com.stratum.core.ui.trainingsetup.SpecializationPreferencesScreen
 import com.stratum.feature.program.ActiveSessionDiscardReason
-import com.stratum.feature.program.SheetHingeGap
-import com.stratum.feature.program.SheetPosture
+import com.stratum.core.ui.component.PaneHingeGap
+import com.stratum.core.ui.component.PanePosture
+import com.stratum.core.ui.component.rememberPanePosture
 import com.stratum.feature.program.CreateProgramGenerateState
 import com.stratum.feature.program.CreateProgramStep
 import com.stratum.feature.program.CreateProgramUiState
@@ -104,7 +105,7 @@ private fun rememberSheetInspectorState(isEditor: Boolean): ProgramSheetInspecto
 }
 
 private fun sheetTitleShift(
-    hinge: SheetHingeGap?,
+    hinge: PaneHingeGap?,
     isEditor: Boolean,
     screenWidthDp: Int,
 ): Dp {
@@ -121,9 +122,9 @@ fun CreateProgramScreen(
     sheetUndoEpoch: Int = 0,
 ) {
     val isEditor = state.step == CreateProgramStep.Editor
-    val posture = rememberSheetPosture()
+    val posture = rememberPanePosture()
     val inspector = rememberSheetInspectorState(isEditor)
-    val hinge = (posture as? SheetPosture.TwoPane)?.hinge
+    val hinge = (posture as? PanePosture.TwoPane)?.hinge
     val titleShift =
         sheetTitleShift(
             hinge = hinge,
@@ -205,7 +206,7 @@ fun CreateProgramScreen(
                     if (isEditor) {
                         {
                             CreateProgramEditorTopBarActions(
-                                twoPane = posture is SheetPosture.TwoPane,
+                                twoPane = posture is PanePosture.TwoPane,
                                 onShowDashboard = inspector::returnToDashboard,
                                 onShowProgramOptions = {
                                     programOptionsMode = CreateProgramOptionsMode.Menu
