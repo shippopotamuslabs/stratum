@@ -15,9 +15,12 @@ import com.stratum.core.infrastructure.telemetry.PARAM_SCREEN
 import com.stratum.core.infrastructure.telemetry.USER_VISIBLE_ERROR_EVENT
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -41,6 +44,10 @@ class ImportProgramViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ImportProgramUiState())
     val uiState: StateFlow<ImportProgramUiState> = _uiState.asStateFlow()
+    private val _navigationEvents = Channel<ImportProgramNavigationEvent>(Channel.BUFFERED)
+
+    /** STR-333: post-import navigation (editor for one program, library for many). */
+    val navigationEvents: Flow<ImportProgramNavigationEvent> = _navigationEvents.receiveAsFlow()
 
     init {
         viewModelScope.launch {
@@ -110,7 +117,8 @@ class ImportProgramViewModel @Inject constructor(
                     // on the Success branch as diagnostics and is drained here
                     // exactly once; diagnostics never reach the UI state.
                     diagnosticDrain.drain(outcome.diagnostics)
-                    val imported = outcome.result.importedProgramIds.size
+                    val importedIds = outcome.result.importedProgramIds.map { id -> id.value }
+                    val imported = importedIds.size
                     val skipped = outcome.result.skippedProgramCount
                     _uiState.update {
                         it.copy(
@@ -121,6 +129,9 @@ class ImportProgramViewModel @Inject constructor(
                             skippedCount = skipped,
                             errorMessage = null,
                         )
+                    }
+                    importProgramNavigationEventFor(importedIds)?.let { event ->
+                        _navigationEvents.send(event)
                     }
                 }
                 else -> {
