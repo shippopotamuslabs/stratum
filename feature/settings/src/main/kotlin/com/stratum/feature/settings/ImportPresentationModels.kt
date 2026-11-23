@@ -56,3 +56,28 @@ enum class ImportProgramPhaseUi {
     Complete,
     Failed,
 }
+
+/**
+ * One-shot navigation after a successful settings program import (STR-333).
+ * Never picks one of several imported programs: many imports open the library.
+ */
+sealed interface ImportProgramNavigationEvent {
+    /** Exactly one program imported: open its editor. */
+    data class OpenProgramEditor(val programId: String) : ImportProgramNavigationEvent
+
+    /** Several programs imported: open the library so the user can pick. */
+    data object OpenProgramLibrary : ImportProgramNavigationEvent
+}
+
+/**
+ * Navigation decision for a successful program import. Returns null when nothing was
+ * imported (all skipped), so the user stays on the import screen with the result card.
+ */
+internal fun importProgramNavigationEventFor(
+    importedProgramIds: List<String>,
+): ImportProgramNavigationEvent? =
+    when (importedProgramIds.size) {
+        0 -> null
+        1 -> ImportProgramNavigationEvent.OpenProgramEditor(importedProgramIds.single())
+        else -> ImportProgramNavigationEvent.OpenProgramLibrary
+    }

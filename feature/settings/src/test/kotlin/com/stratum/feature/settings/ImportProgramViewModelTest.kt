@@ -1,5 +1,6 @@
 package com.stratum.feature.settings
 
+import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.core.testing.logging.FakeLoggingPort
@@ -431,5 +432,108 @@ class ImportProgramViewModelTest {
         )
         assertFalse(friendly.contains("FOREIGN KEY", ignoreCase = true))
         assertFalse(friendly.contains("SQLITE", ignoreCase = true))
+    }
+
+    private fun authenticatedViewModel(
+        useCase: ImportProgramTemplatesUseCase,
+        auth: FakeAuthManager =
+            FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null))),
+    ) = ImportProgramViewModel(
+        useCase,
+        com.stratum.application.auth.GetAuthStateUseCase(auth),
+        AnalyticsRecorder(FakeAnalyticsPort()),
+        DiagnosticDrain(FakeLoggingPort()),
+    )
+
+    private fun successOutcome(ids: List<String>, skipped: Int = 0) =
+        ProgramTemplateImportOutcome.Success(
+            ProgramTemplateImportResult(
+                importedProgramIds = ids.map(::ProgramId),
+                skippedProgramCount = skipped,
+            ),
+        )
+
+    @Test
+    @DisplayName("STR-333 Single imported program emits OpenProgramEditor with its id")
+    fun str333_singleImportOpensEditor() = runTest {
+        val vm = authenticatedViewModel(
+            RecordingImportProgramTemplatesUseCase(successOutcome(listOf("p1"), skipped = 2)),
+        )
+        vm.navigationEvents.test {
+            vm.onFileSelected(byteArrayOf(1), "p.json")
+            assertEquals(ImportProgramNavigationEvent.OpenProgramEditor("p1"), awaitItem())
+            expectNoEvents()
+        }
+        assertEquals(1, vm.uiState.value.importedCount)
+        assertEquals(2, vm.uiState.value.skippedCount)
+    }
+
+    @Test
+    @DisplayName("STR-333 Several imported programs emit OpenProgramLibrary, never one editor")
+    fun str333_multipleImportsOpenLibrary() = runTest {
+        val vm = authenticatedViewModel(
+            RecordingImportProgramTemplatesUseCase(successOutcome(listOf("p1", "p2"))),
+        )
+        vm.navigationEvents.test {
+            vm.onFileSelected(byteArrayOf(1), "p.json")
+            assertEquals(ImportProgramNavigationEvent.OpenProgramLibrary, awaitItem())
+            expectNoEvents()
+        }
+        assertEquals(2, vm.uiState.value.importedCount)
+    }
+
+    @Test
+    @DisplayName("STR-333 All-skipped import stays on screen with the result card")
+    fun str333_zeroImportsStayOnScreen() = runTest {
+        val vm = authenticatedViewModel(
+            RecordingImportProgramTemplatesUseCase(successOutcome(emptyList(), skipped = 3)),
+        )
+        vm.navigationEvents.test {
+            vm.onFileSelected(byteArrayOf(1), "p.json")
+            advanceUntilIdle()
+            expectNoEvents()
+        }
+        assertEquals(ImportProgramPhaseUi.Complete, vm.uiState.value.phase)
+        assertEquals(0, vm.uiState.value.importedCount)
+        assertEquals(3, vm.uiState.value.skippedCount)
+    }
+
+    @Test
+    @DisplayName("STR-333 Failed import and signed-out guidance never navigate")
+    fun str333_failureAndSignedOutDoNotNavigate() = runTest {
+        val failing = authenticatedViewModel(
+            RecordingImportProgramTemplatesUseCase(ProgramTemplateImportOutcome.TimedOut),
+        )
+        failing.navigationEvents.test {
+            failing.onFileSelected(byteArrayOf(1), "p.json")
+            advanceUntilIdle()
+            expectNoEvents()
+        }
+        assertTrue(failing.uiState.value.errorMessage != null)
+
+        val signedOut = authenticatedViewModel(
+            RecordingImportProgramTemplatesUseCase(successOutcome(listOf("p1"))),
+            auth = FakeAuthManager(AuthState.Unauthenticated),
+        )
+        signedOut.navigationEvents.test {
+            signedOut.onFileSelected(byteArrayOf(1), "p.json")
+            advanceUntilIdle()
+            expectNoEvents()
+        }
+        assertTrue(signedOut.uiState.value.signedOutGuidanceVisible)
+    }
+
+    @Test
+    @DisplayName("STR-333 Navigation decision: 0 stays, 1 opens editor, many open library")
+    fun str333_navigationDecision() {
+        assertEquals(null, importProgramNavigationEventFor(emptyList()))
+        assertEquals(
+            ImportProgramNavigationEvent.OpenProgramEditor("a"),
+            importProgramNavigationEventFor(listOf("a")),
+        )
+        assertEquals(
+            ImportProgramNavigationEvent.OpenProgramLibrary,
+            importProgramNavigationEventFor(listOf("a", "b", "c")),
+        )
     }
 }

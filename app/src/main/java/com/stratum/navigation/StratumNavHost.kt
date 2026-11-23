@@ -313,7 +313,7 @@ fun StratumNavHost(
                 onNavigateToImportProgram = { backStack.add(ImportProgramKey) },
             )
             importLogsEntry(onBackClick = onNavigateBack)
-            importProgramEntry(onBackClick = onNavigateBack)
+            importProgramEntry(onBackClick = onNavigateBack, onImported = backStack::navigateAfterProgramImport)
             exportDataEntry(
                 onBackClick = onNavigateBack,
                 onNavigateToExportLogs = { backStack.add(ExportLogsKey) },

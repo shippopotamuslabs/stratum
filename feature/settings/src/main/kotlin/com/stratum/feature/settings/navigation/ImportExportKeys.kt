@@ -3,6 +3,7 @@ package com.stratum.feature.settings.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -11,6 +12,7 @@ import androidx.navigation3.runtime.NavKey
 import com.stratum.feature.settings.ExportLogsViewModel
 import com.stratum.feature.settings.ExportProgramsViewModel
 import com.stratum.feature.settings.ImportLogsViewModel
+import com.stratum.feature.settings.ImportProgramNavigationEvent
 import com.stratum.feature.settings.ImportProgramViewModel
 import com.stratum.feature.settings.shareJsonExport
 import com.stratum.feature.settings.ui.ExportDataScreen
@@ -70,10 +72,22 @@ fun EntryProviderScope<NavKey>.importLogsEntry(onBackClick: () -> Unit) {
     }
 }
 
-fun EntryProviderScope<NavKey>.importProgramEntry(onBackClick: () -> Unit) {
+/**
+ * Registers Import Program. After a successful import, [onImported] receives the
+ * navigation decision (editor for one program, library for many; STR-333). Zero imports,
+ * failures and signed-out guidance stay on screen and never call it.
+ */
+fun EntryProviderScope<NavKey>.importProgramEntry(
+    onBackClick: () -> Unit,
+    onImported: (ImportProgramNavigationEvent) -> Unit,
+) {
     entry<ImportProgramKey> {
         val viewModel: ImportProgramViewModel = hiltViewModel()
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+        val currentOnImported by rememberUpdatedState(onImported)
+        LaunchedEffect(viewModel) {
+            viewModel.navigationEvents.collect { event -> currentOnImported(event) }
+        }
         SettingsGlassRoute {
             ImportProgramScreen(
                 uiState = uiState,
