@@ -21,4 +21,6 @@ data class ProgramsScreenCallbacks(
     val onConfirmDiscardAndStart: (ProgramsStartAction) -> Unit = {},
     /** Persists which workout card is expanded (`null` when collapsed). */
     val onExpandedWorkoutChange: (workoutId: String?) -> Unit = {},
+    /** Selects the day shown in the two-pane detail pane (session memory only). */
+    val onSelectWorkout: (workoutId: String) -> Unit = {},
 )
