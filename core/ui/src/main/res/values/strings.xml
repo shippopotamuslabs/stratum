@@ -83,12 +83,15 @@
         <item quantity="one">%1$d lift or workout</item>
         <item quantity="other">%1$d lifts and workouts</item>
     </plurals>
-    <string name="equipment_delete_lifts_label">Lifts</string>
-    <string name="equipment_delete_workouts_label">Workouts</string>
+    <string name="equipment_delete_lifts_label">Linked lifts · %1$d</string>
+    <string name="equipment_delete_workouts_label">Linked workouts · %1$d</string>
     <string name="equipment_delete_choose_replacement">Choose replacement</string>
     <string name="equipment_delete_picker_back">Back</string>
-    <string name="equipment_delete_replacement_label">Replacement equipment</string>
-    <string name="equipment_delete_workout_slots">%1$s (%2$d slot(s))</string>
+    <string name="equipment_delete_replacement_label">Replacement</string>
+    <plurals name="equipment_delete_workout_slot_count">
+        <item quantity="one">%1$d slot</item>
+        <item quantity="other">%1$d slots</item>
+    </plurals>
     <string name="equipment_micro_row">Micro stops</string>
     <string name="equipment_micro_none">none</string>
     <string name="equipment_affected_sheet_title">Affected lifts</string>

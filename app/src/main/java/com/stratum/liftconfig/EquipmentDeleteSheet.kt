@@ -124,15 +124,8 @@ internal fun ColumnScope.EquipmentDeleteSheetContent(
     canConfirmDelete: Boolean?,
     onOpenPicker: () -> Unit,
 ) {
-    val workoutLabels = affectedWorkouts.map { workout ->
-        if (workout.slotCount > 1) {
-            stringResource(UiR.string.equipment_delete_workout_slots, workout.name, workout.slotCount)
-        } else {
-            workout.name
-        }
-    }
-    val hasAffected = affectedLiftNames.isNotEmpty() || workoutLabels.isNotEmpty()
-    val affectedCount = affectedLiftNames.size + workoutLabels.size
+    val hasAffected = affectedLiftNames.isNotEmpty() || affectedWorkouts.isNotEmpty()
+    val affectedCount = affectedLiftNames.size + affectedWorkouts.size
     val affectedCountPhrase =
         pluralStringResource(
             UiR.plurals.equipment_delete_affected_count,
@@ -147,9 +140,18 @@ internal fun ColumnScope.EquipmentDeleteSheetContent(
         else -> stringResource(UiR.string.equipment_delete_body, name)
     }
     val confirmEnabled = canConfirmDelete ?: (!hasAffected || usesBodyweightFallback || selectedReplacementId != null)
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    // The summary sits in its own panel card, matching the STR-335 mockup.
     StratumText(
         text = body,
         style = StratumThemeAccessor.typography.bodyLarge,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(color = colors.surfaceRaised, shape = shapes.panel)
+                .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
     )
     if (hasAffected) {
         // Weighted (not greedy): the linked list scrolls inside the sheet's
@@ -160,33 +162,46 @@ internal fun ColumnScope.EquipmentDeleteSheetContent(
                 Modifier
                     .weight(1f, fill = false)
                     .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         ) {
             if (affectedLiftNames.isNotEmpty()) {
-                StratumText(
-                    text = stringResource(UiR.string.equipment_delete_lifts_label),
-                    style = StratumThemeAccessor.typography.sectionLabel,
-                    muted = true,
-                )
-                affectedLiftNames.forEach { liftName ->
+                Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
                     StratumText(
-                        text = liftName,
-                        style = StratumThemeAccessor.typography.bodyLarge,
+                        text =
+                            stringResource(
+                                UiR.string.equipment_delete_lifts_label,
+                                affectedLiftNames.size,
+                            ),
+                        style = StratumThemeAccessor.typography.sectionLabel,
+                        muted = true,
                     )
+                    affectedLiftNames.forEach { liftName ->
+                        LinkedItemRow(name = liftName)
+                    }
                 }
             }
-            if (workoutLabels.isNotEmpty()) {
-                StratumText(
-                    text = stringResource(UiR.string.equipment_delete_workouts_label),
-                    style = StratumThemeAccessor.typography.sectionLabel,
-                    muted = true,
-                    modifier = Modifier.padding(top = StratumSpacing.s8),
-                )
-                workoutLabels.forEach { label ->
+            if (affectedWorkouts.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
                     StratumText(
-                        text = label,
-                        style = StratumThemeAccessor.typography.bodyLarge,
+                        text =
+                            stringResource(
+                                UiR.string.equipment_delete_workouts_label,
+                                affectedWorkouts.size,
+                            ),
+                        style = StratumThemeAccessor.typography.sectionLabel,
+                        muted = true,
                     )
+                    affectedWorkouts.forEach { workout ->
+                        LinkedItemRow(
+                            name = workout.name,
+                            sub =
+                                pluralStringResource(
+                                    UiR.plurals.equipment_delete_workout_slot_count,
+                                    workout.slotCount,
+                                    workout.slotCount,
+                                ),
+                        )
+                    }
                 }
             }
         }
@@ -218,6 +233,39 @@ internal fun ColumnScope.EquipmentDeleteSheetContent(
             destructive = true,
             modifier = Modifier.weight(1f),
         )
+    }
+}
+
+/** One linked item in the sheet: a panel card row, with an optional muted sub on the right. */
+@Composable
+private fun LinkedItemRow(
+    name: String,
+    sub: String? = null,
+) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(color = colors.surfaceRaised, shape = shapes.panel)
+                .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StratumText(
+            text = name,
+            style = StratumThemeAccessor.typography.bodyLarge,
+            modifier = Modifier.weight(1f),
+        )
+        if (sub != null) {
+            StratumText(
+                text = sub,
+                style = StratumThemeAccessor.typography.bodyMedium,
+                muted = true,
+            )
+        }
     }
 }
 
