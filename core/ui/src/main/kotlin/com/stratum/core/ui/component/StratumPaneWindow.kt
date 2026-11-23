@@ -1,4 +1,4 @@
-package com.stratum.core.ui.posture
+package com.stratum.core.ui.component
 
 import android.app.Activity
 import android.content.Context
@@ -17,11 +17,12 @@ import androidx.window.layout.WindowMetricsCalculator
 /**
  * Preview and screenshot override. Production leaves this null and reads the window.
  */
-val LocalFoldPosture = staticCompositionLocalOf<FoldPosture?> { null }
+val LocalPanePosture = staticCompositionLocalOf<PanePosture?> { null }
 
+/** Current window posture: [LocalPanePosture] when provided, otherwise the live window. */
 @Composable
-fun rememberFoldPosture(): FoldPosture {
-    LocalFoldPosture.current?.let { return it }
+fun rememberPanePosture(): PanePosture {
+    LocalPanePosture.current?.let { return it }
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
     val fold = activity?.let { rememberFoldSnapshot(it) }
@@ -33,11 +34,11 @@ fun rememberFoldPosture(): FoldPosture {
                 WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(activity).bounds.width()
             with(LocalDensity.current) { widthPx.toDp() }.value.toInt()
         }
-    return decideFoldPosture(widthDp = widthDp, fold = fold)
+    return decidePanePosture(widthDp = widthDp, fold = fold)
 }
 
 @Composable
-private fun rememberFoldSnapshot(activity: Activity): FoldSnapshot? {
+private fun rememberFoldSnapshot(activity: Activity): PaneFoldSnapshot? {
     val layoutInfo =
         remember(activity) {
             WindowInfoTracker.getOrCreate(activity).windowLayoutInfo(activity)
@@ -49,23 +50,24 @@ private fun rememberFoldSnapshot(activity: Activity): FoldSnapshot? {
         } ?: features.filterIsInstance<FoldingFeature>().firstOrNull()
     val widthPx =
         WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(activity).bounds.width()
-    return feature?.toFoldSnapshot(widthPx)
+    return feature?.toPaneFoldSnapshot(widthPx)
 }
 
-fun FoldingFeature.toFoldSnapshot(windowWidthPx: Int): FoldSnapshot {
+/** Reduces a Jetpack WindowManager [FoldingFeature] to the numbers [decidePanePosture] reads. */
+fun FoldingFeature.toPaneFoldSnapshot(windowWidthPx: Int): PaneFoldSnapshot {
     val foldState =
         if (state == FoldingFeature.State.FLAT) {
-            FoldState.Flat
+            PaneFoldState.Flat
         } else {
-            FoldState.HalfOpened
+            PaneFoldState.HalfOpened
         }
     val axis =
         if (orientation == FoldingFeature.Orientation.VERTICAL) {
-            HingeAxis.Vertical
+            PaneHingeAxis.Vertical
         } else {
-            HingeAxis.Horizontal
+            PaneHingeAxis.Horizontal
         }
-    return FoldSnapshot(
+    return PaneFoldSnapshot(
         state = foldState,
         axis = axis,
         hingeLeftPx = bounds.left,

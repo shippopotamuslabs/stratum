@@ -10,21 +10,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.stratum.core.ui.posture.FoldPosture
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
- * Single pane, or primary | hinge | detail. With no hinge band the window
- * splits in half. The hinge slot is not clickable.
+ * Single pane, or primary | hinge | detail. The hinge slot is not clickable. With no hinge
+ * band the window splits in half.
  */
 @Composable
 fun StratumTwoPane(
-    posture: FoldPosture,
+    posture: PanePosture,
     modifier: Modifier = Modifier,
     detail: @Composable () -> Unit,
     primary: @Composable () -> Unit,
 ) {
-    val split = posture as? FoldPosture.TwoPane
+    val split = posture as? PanePosture.TwoPane
     if (split == null) {
         Box(modifier = modifier.fillMaxSize()) { primary() }
         return

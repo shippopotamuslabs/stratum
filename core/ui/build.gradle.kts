@@ -65,7 +65,6 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.core.ktx)
-    // Shared foldable posture (FoldPostureWindow): folding features and window metrics.
     implementation(libs.androidx.window)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.credentials)

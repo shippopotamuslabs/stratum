@@ -4,10 +4,10 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.tooling.preview.Preview
+import com.stratum.core.ui.component.LocalPanePosture
+import com.stratum.core.ui.component.PanePosture
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
-import com.stratum.core.ui.posture.FoldPosture
-import com.stratum.core.ui.posture.LocalFoldPosture
-import com.stratum.core.ui.posture.flatHingeFixture
+import com.stratum.core.ui.component.paneFlatHingeFixture
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -54,28 +54,28 @@ private fun ProgramsTwoPaneHingePreview() {
 /** Default selection: no pick yet, so the pane opens the next workout day. */
 @Composable
 internal fun ProgramsTwoPaneNextDayPreviewContent() {
-    FoldablePrograms(posture = FoldPosture.TwoPane(hinge = null), selectedWorkoutId = null)
+    FoldablePrograms(posture = PanePosture.TwoPane(hinge = null), selectedWorkoutId = null)
 }
 
 /** A picked day that is not the next one: accent row on the left, its lifts on the right. */
 @Composable
 internal fun ProgramsTwoPaneSelectedDayPreviewContent() {
-    FoldablePrograms(posture = FoldPosture.TwoPane(hinge = null), selectedWorkoutId = PREVIEW_PULL_ID)
+    FoldablePrograms(posture = PanePosture.TwoPane(hinge = null), selectedWorkoutId = PREVIEW_PULL_ID)
 }
 
 /** Flat fold with a hinge band between the panes. */
 @Composable
 internal fun ProgramsTwoPaneHingePreviewContent() {
-    FoldablePrograms(posture = flatHingeFixture(), selectedWorkoutId = null)
+    FoldablePrograms(posture = paneFlatHingeFixture(), selectedWorkoutId = null)
 }
 
 @Composable
 private fun FoldablePrograms(
-    posture: FoldPosture,
+    posture: PanePosture,
     selectedWorkoutId: String?,
 ) {
     StratumTheme(themeId = StratumThemeId.Tonal) {
-        CompositionLocalProvider(LocalFoldPosture provides posture) {
+        CompositionLocalProvider(LocalPanePosture provides posture) {
             ProgramsScreen(
                 state = previewFoldableProgram(selectedWorkoutId),
                 callbacks = ProgramsScreenCallbacks(),

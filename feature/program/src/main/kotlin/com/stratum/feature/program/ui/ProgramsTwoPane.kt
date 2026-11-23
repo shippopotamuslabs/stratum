@@ -25,10 +25,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import com.stratum.core.ui.component.PanePosture
 import com.stratum.core.ui.component.StratumActiveBadge
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTwoPane
-import com.stratum.core.ui.posture.FoldPosture
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.R
@@ -40,7 +40,7 @@ import com.stratum.feature.program.R
  */
 @Composable
 internal fun ProgramsTwoPane(
-    posture: FoldPosture,
+    posture: PanePosture,
     state: ProgramsUiState.Loaded,
     callbacks: ProgramsScreenCallbacks,
     listScrollState: ScrollState,

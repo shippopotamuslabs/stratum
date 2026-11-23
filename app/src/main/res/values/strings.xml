@@ -42,6 +42,16 @@
     <string name="dashboard_section_upper">Upper</string>
     <string name="dashboard_section_lower">Lower</string>
     <string name="dashboard_contributing_lifts_format">%1$d lifts</string>
+    <string name="dashboard_pane_pick">Tap a muscle or lift to see it here.</string>
+    <string name="dashboard_pane_loading">Loading…</string>
+    <string name="dashboard_pane_trend_caption">Last 8 weeks</string>
+    <string name="dashboard_pane_lifts">Lifts</string>
+    <string name="dashboard_pane_no_lifts">No sets for this muscle in the last 8 weeks.</string>
+    <string name="dashboard_pane_secondary">Secondary</string>
+    <string name="dashboard_pane_recent_sessions">Recent sessions</string>
+    <string name="dashboard_pane_configuration">Setup</string>
+    <string name="dashboard_pane_target_muscles">Target muscles</string>
+    <string name="dashboard_pane_history">Sessions</string>
     <!-- Fullscreen graph detail -->
     <string name="dashboard_graph_back">Back</string>
     <string name="dashboard_graph_loading_title">Graph</string>

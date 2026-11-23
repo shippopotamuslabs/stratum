@@ -14,9 +14,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.pager.PagerState
@@ -26,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +42,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -44,12 +51,15 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as UiR
+import com.stratum.core.ui.component.PanePosture
 import com.stratum.core.ui.component.StratumFeatureErrorFallback
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumIndexVolumeChart
 import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTrendChart
+import com.stratum.core.ui.component.StratumTwoPane
+import com.stratum.core.ui.component.rememberPanePosture
 import com.stratum.core.ui.component.StratumVolumeBarChart
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -69,6 +79,13 @@ fun DashboardScreen(
     }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // STR-331: unfolded, the cards drive a detail pane instead of opening the graph overlay.
+    // Folded, half-opened, and narrow windows keep the single-pane navigation unchanged.
+    val posture = rememberPanePosture()
+    val twoPane = posture is PanePosture.TwoPane
+    LaunchedEffect(twoPane) {
+        viewModel.setDetailPaneVisible(twoPane)
+    }
 
     DashboardScreen(
         state = uiState.board,
@@ -78,11 +95,19 @@ fun DashboardScreen(
         onRefresh = if (uiState.health.visible) viewModel::refresh else null,
         onSelectedTabChange = viewModel::selectTab,
         onNavigateToSettings = onNavigateToSettings,
-        onOpenLiftGraph = viewModel::openLiftGraph,
-        onOpenMuscleGraph = viewModel::openMuscleGraph,
+        onOpenLiftGraph = if (twoPane) viewModel::selectLift else viewModel::openLiftGraph,
+        onOpenMuscleGraph = if (twoPane) viewModel::selectMuscle else viewModel::openMuscleGraph,
         onOpenMuscleDailyVolumeGraph = viewModel::openMuscleDailyVolumeGraph,
         onRetry = viewModel::retry,
         modifier = modifier,
+        twoPane = DashboardTwoPaneSlots(
+            posture = posture,
+            pane = uiState.pane,
+            onRetryMuscleDetail = viewModel::retryMuscleDetail,
+            liftDetailPane = { liftId, listState ->
+                DashboardLiftPaneRoute(liftId = liftId, listState = listState)
+            },
+        ),
     )
 
     DashboardGraphDetailHost(
@@ -108,7 +133,14 @@ internal fun DashboardScreen(
     onOpenMuscleGraph: (String) -> Unit = {},
     onOpenMuscleDailyVolumeGraph: (String) -> Unit = {},
     onRetry: () -> Unit = {},
+    twoPane: DashboardTwoPaneSlots = DashboardTwoPaneSlots(),
 ) {
+    val posture = twoPane.posture
+    val pane = twoPane.pane
+    // Hoisted above the pane split so scroll positions survive folding and unfolding.
+    val gridState = rememberLazyGridState()
+    val muscleListState = rememberLazyListState()
+    val liftListState = rememberLazyListState()
     val healthPagerState = rememberPagerState(
         initialPage = health.selectedPage.coerceIn(0, HEALTH_PAGER_PAGE_COUNT - 1),
         pageCount = { HEALTH_PAGER_PAGE_COUNT },
@@ -149,20 +181,61 @@ internal fun DashboardScreen(
                 Box(modifier = Modifier.padding(bottom = chrome.bottom)) {
                     StratumFeatureErrorFallback(onRetry = onRetry)
                 }
-            is DashboardBoardUiState.Loaded -> LoadedContent(
-                state = state,
-                tab = selectedTab,
-                health = health,
-                pagerState = healthPagerState,
-                onSelectedTabChange = onSelectedTabChange,
-                onNavigateToSettings = onNavigateToSettings,
-                onOpenLiftGraph = onOpenLiftGraph,
-                onOpenMuscleGraph = onOpenMuscleGraph,
-                onOpenMuscleDailyVolumeGraph = onOpenMuscleDailyVolumeGraph,
-            )
+            is DashboardBoardUiState.Loaded -> {
+                val selection = pane.selection.takeIf { posture is PanePosture.TwoPane }
+                val loaded: @Composable ColumnScope.() -> Unit = {
+                    LoadedContent(
+                        state = state,
+                        tab = selectedTab,
+                        health = health,
+                        pagerState = healthPagerState,
+                        gridState = gridState,
+                        selectedMuscleKey = (selection as? DashboardPaneSelectionUi.Muscle)?.muscleKey,
+                        selectedLiftId = (selection as? DashboardPaneSelectionUi.Lift)?.liftId,
+                        onSelectedTabChange = onSelectedTabChange,
+                        onNavigateToSettings = onNavigateToSettings,
+                        onOpenLiftGraph = onOpenLiftGraph,
+                        onOpenMuscleGraph = onOpenMuscleGraph,
+                        onOpenMuscleDailyVolumeGraph = onOpenMuscleDailyVolumeGraph,
+                    )
+                }
+                if (posture is PanePosture.TwoPane) {
+                    StratumTwoPane(
+                        posture = posture,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        detail = {
+                            DashboardDetailPane(
+                                board = state,
+                                pane = pane,
+                                muscleListState = muscleListState,
+                                liftListState = liftListState,
+                                onRetryMuscleDetail = twoPane.onRetryMuscleDetail,
+                                liftDetailPane = twoPane.liftDetailPane,
+                            )
+                        },
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize(), content = loaded)
+                    }
+                } else {
+                    loaded()
+                }
+            }
         }
     }
 }
+
+/**
+ * Two-pane inputs for the Dashboard (STR-331). The default is the single-pane layout, so
+ * callers that never split (previews, folded) pass nothing.
+ */
+internal class DashboardTwoPaneSlots(
+    val posture: PanePosture = PanePosture.SinglePane,
+    val pane: DashboardPaneUiState = DashboardPaneUiState(),
+    val onRetryMuscleDetail: () -> Unit = {},
+    val liftDetailPane: @Composable (liftId: String, listState: LazyListState) -> Unit = { _, _ -> },
+)
 
 @Composable
 private fun ColumnScope.LoadingState(
@@ -255,6 +328,9 @@ private fun ColumnScope.LoadedContent(
     tab: DashboardBoardTabUi,
     health: DashboardHealthUiState,
     pagerState: PagerState,
+    gridState: LazyGridState,
+    selectedMuscleKey: String?,
+    selectedLiftId: String?,
     onSelectedTabChange: (DashboardBoardTabUi) -> Unit,
     onNavigateToSettings: () -> Unit,
     onOpenLiftGraph: (String) -> Unit,
@@ -275,6 +351,7 @@ private fun ColumnScope.LoadedContent(
     }
     LazyVerticalGrid(
         columns = GridCells.Fixed(CARDS_PER_ROW),
+        state = gridState,
         modifier = Modifier
             .fillMaxWidth()
             .weight(1f),
@@ -334,6 +411,7 @@ private fun ColumnScope.LoadedContent(
                     ) { muscle ->
                         MuscleTrendCard(
                             muscle = muscle,
+                            selected = muscle.muscleKey == selectedMuscleKey,
                             onClick = { onOpenMuscleGraph(muscle.muscleKey) },
                         )
                     }
@@ -360,6 +438,7 @@ private fun ColumnScope.LoadedContent(
                 } else {
                     liftSectionItems(
                         sections = state.liftSections,
+                        selectedLiftId = selectedLiftId,
                         onOpenLiftGraph = onOpenLiftGraph,
                     )
                 }
@@ -467,6 +546,7 @@ private fun LazyGridScope.emptyTabItem(textRes: Int) {
 private fun MuscleTrendCard(
     muscle: MuscleSeriesUi,
     onClick: () -> Unit,
+    selected: Boolean = false,
 ) {
     TrendCard(
         name = muscle.name,
@@ -476,6 +556,7 @@ private fun MuscleTrendCard(
         // Baseline semantics live under the global legend — keep card footers to lift count only.
         footer = stringResource(R.string.dashboard_contributing_lifts_format, muscle.contributingLifts),
         highlight = muscle.highlight,
+        selected = selected,
         onClick = onClick,
     ) {
         StratumIndexVolumeChart(
@@ -510,6 +591,7 @@ private fun SevenDayVolumeCard(
 
 private fun LazyGridScope.liftSectionItems(
     sections: List<LiftSectionUi>,
+    selectedLiftId: String?,
     onOpenLiftGraph: (String) -> Unit,
 ) {
     sections.forEach { section ->
@@ -525,6 +607,7 @@ private fun LazyGridScope.liftSectionItems(
         ) { lift ->
             LiftTrendCard(
                 lift = lift,
+                selected = lift.liftId == selectedLiftId,
                 onClick = { onOpenLiftGraph(lift.liftId) },
             )
         }
@@ -554,6 +637,7 @@ private fun sectionTitle(key: String): String = when (key) {
 private fun LiftTrendCard(
     lift: LiftSeriesUi,
     onClick: () -> Unit,
+    selected: Boolean = false,
 ) {
     TrendCard(
         name = lift.name,
@@ -565,6 +649,7 @@ private fun LiftTrendCard(
         // Window is stated once in the lifts legend caption — footer is session count only.
         footer = stringResource(R.string.dashboard_lift_footer_format, lift.sessions),
         highlight = lift.highlight,
+        selected = selected,
         onClick = onClick,
     ) {
         StratumTrendChart(
@@ -584,17 +669,22 @@ private fun TrendCard(
     headline: String,
     footer: String,
     highlight: CalloutDirectionUi? = null,
+    selected: Boolean = false,
     onClick: (() -> Unit)? = null,
     chart: @Composable () -> Unit,
 ) {
     val badgeColor = badge?.color()
     // Progressing uses accent (primary) — setComplete is a dark mint that reads as muted on
     // raised cards; accent stays as bright as error so both callout borders scan equally well.
-    val borderColor = when (highlight) {
-        CalloutDirectionUi.Progressing -> StratumThemeAccessor.colors.accent
-        CalloutDirectionUi.Regressing -> StratumThemeAccessor.colors.error
-        null -> StratumThemeAccessor.colors.borderSubtle
+    // Two-pane selection (STR-331) wins over the callout border: a doubled accent stroke so it
+    // reads apart from the single-stroke Progressing callout.
+    val borderColor = when {
+        selected -> StratumThemeAccessor.colors.accent
+        highlight == CalloutDirectionUi.Progressing -> StratumThemeAccessor.colors.accent
+        highlight == CalloutDirectionUi.Regressing -> StratumThemeAccessor.colors.error
+        else -> StratumThemeAccessor.colors.borderSubtle
     }
+    val borderWidth = StratumThemeAccessor.shapes.borderWidth * if (selected) 2 else 1
     val clickModifier = if (onClick != null) {
         Modifier.clickable(
             role = Role.Button,
@@ -611,11 +701,12 @@ private fun TrendCard(
                 shape = StratumThemeAccessor.shapes.panel,
             )
             .border(
-                width = StratumThemeAccessor.shapes.borderWidth,
+                width = borderWidth,
                 color = borderColor,
                 shape = StratumThemeAccessor.shapes.panel,
             )
             .then(clickModifier)
+            .then(if (selected) Modifier.semantics { this.selected = true } else Modifier)
             .padding(CARD_PADDING_DP.dp),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
@@ -638,7 +729,7 @@ private fun TrendCard(
  * glance; up/improving uses the set-complete accent.
  */
 @Composable
-private fun TrendDot(badge: TrendBadge, color: Color) {
+internal fun TrendDot(badge: TrendBadge, color: Color) {
     val trendLabel = stringResource(badge.labelRes())
     Box(
         modifier = Modifier
@@ -682,7 +773,7 @@ private fun TrendDot(badge: TrendBadge, color: Color) {
 }
 
 @Composable
-private fun TrendBadge.color(): Color = when (this) {
+internal fun TrendBadge.color(): Color = when (this) {
     TrendBadge.Up -> StratumThemeAccessor.colors.setComplete
     TrendBadge.Down -> StratumThemeAccessor.colors.error
     TrendBadge.Flat -> StratumThemeAccessor.colors.textMuted

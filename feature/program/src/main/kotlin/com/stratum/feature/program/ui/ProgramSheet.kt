@@ -64,14 +64,14 @@ import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
-import com.stratum.core.ui.component.StratumTwoPane
 import com.stratum.core.ui.component.formatRirLabel
 import com.stratum.core.ui.component.workoutlog.rememberOverlayDockListBinding
-import com.stratum.core.ui.posture.FoldPosture
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.stratumDockTopRule
 import com.stratum.feature.program.CreateProgramDayUi
+import com.stratum.core.ui.component.PanePosture
+import com.stratum.core.ui.component.StratumTwoPane
 import com.stratum.feature.program.CreateProgramUiState
 import com.stratum.feature.program.ProgramSheetClipboard
 import com.stratum.feature.program.ProgramSheetClipboardKind
@@ -116,7 +116,7 @@ internal fun ProgramSheet(
     state: CreateProgramUiState,
     callbacks: CreateProgramScreenCallbacks,
     topClearance: Dp,
-    posture: FoldPosture,
+    posture: PanePosture,
     inspector: ProgramSheetInspectorState,
     modifier: Modifier = Modifier,
 ) {
@@ -126,7 +126,7 @@ internal fun ProgramSheet(
             programSheetRows(state.days, clipboardActive = clipboard != null)
         }
     val selection = LocalProgramSheetSelection.current
-    val twoPane = posture is FoldPosture.TwoPane
+    val twoPane = posture is PanePosture.TwoPane
     val dockHost = remember { EditWorkoutDockHostState() }
     val scroll =
         rememberProgramSheetListScroll(
@@ -336,7 +336,7 @@ private fun ProgramSheetFrame(
     state: CreateProgramUiState,
     callbacks: CreateProgramScreenCallbacks,
     scroll: ProgramSheetListScroll,
-    posture: FoldPosture,
+    posture: PanePosture,
     inspector: ProgramSheetInspectorState,
     dockHost: EditWorkoutDockHostState,
     dockHeight: Dp,
@@ -354,7 +354,7 @@ private fun ProgramSheetFrame(
             programSheetRows(state.days, clipboardActive = clipboard != null)
         }
     val selection = LocalProgramSheetSelection.current
-    val twoPane = posture is FoldPosture.TwoPane
+    val twoPane = posture is PanePosture.TwoPane
     // Undo restores the days without touching the selection; keep the
     // selection pointed at the day that actually holds the selected lift.
     LaunchedEffect(state.days) {

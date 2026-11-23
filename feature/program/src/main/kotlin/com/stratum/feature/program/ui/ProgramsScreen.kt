@@ -72,8 +72,8 @@ import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
-import com.stratum.core.ui.posture.FoldPosture
-import com.stratum.core.ui.posture.rememberFoldPosture
+import com.stratum.core.ui.component.PanePosture
+import com.stratum.core.ui.component.rememberPanePosture
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.rememberGlassChromePadding
@@ -200,8 +200,8 @@ internal fun ProgramsScreen(
                 chrome.bottom
         // STR-332: unfolded (flat fold or expanded width) the loaded program splits into
         // week | day detail. Folded, half-opened, and narrow windows keep the single pane.
-        val posture = rememberFoldPosture()
-        if (posture is FoldPosture.TwoPane && state is ProgramsUiState.Loaded) {
+        val posture = rememberPanePosture()
+        if (posture is PanePosture.TwoPane && state is ProgramsUiState.Loaded) {
             ProgramsTwoPane(
                 posture = posture,
                 state = state,
