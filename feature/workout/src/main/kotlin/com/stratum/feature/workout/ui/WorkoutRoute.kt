@@ -38,7 +38,9 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.feature.workout.LiveSetKind
-import com.stratum.feature.workout.WorkoutPosture
+import com.stratum.core.ui.component.PanePosture
+import com.stratum.core.ui.component.rememberPanePosture
+import com.stratum.core.ui.component.StratumTwoPane
 import com.stratum.feature.workout.WorkoutViewModel
 import com.stratum.feature.workout.notification.RestTimerState
 import kotlinx.coroutines.delay
@@ -102,7 +104,7 @@ fun WorkoutRoute(
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingSetLogged by remember { mutableStateOf<WorkoutUiEvent.SetLogged?>(null) }
     var failedLogSlotKey by remember { mutableStateOf<String?>(null) }
-    val posture = rememberWorkoutPosture()
+    val posture = rememberPanePosture()
     var coachTab by remember { mutableStateOf(WorkoutCoachTab.Coach) }
     var primaryLiftId by remember { mutableStateOf<String?>(null) }
     var liftFocusRequest by remember { mutableStateOf<LiftFocusRequest?>(null) }
@@ -111,7 +113,7 @@ fun WorkoutRoute(
     // ending (timer finish or skip) returns to Coach. Manual tab taps win: the
     // return only fires while the pane still shows Rest.
     LaunchedEffect(pendingSetLogged) {
-        if (pendingSetLogged != null && posture is WorkoutPosture.TwoPane) {
+        if (pendingSetLogged != null && posture is PanePosture.TwoPane) {
             coachTab = WorkoutCoachTab.Rest
         }
     }
@@ -278,11 +280,11 @@ fun WorkoutRoute(
                 modifier = screenModifier,
             )
             }
-            WorkoutCoachPanes(
+            StratumTwoPane(
                 posture = posture,
                 modifier = modifier,
-                workout = { workoutScreen(Modifier) },
-                coach = {
+                primary = { workoutScreen(Modifier) },
+                detail = {
                     WorkoutCoachPane(
                         state = state,
                         primaryLiftId = primaryLiftId,

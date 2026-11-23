@@ -6,8 +6,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.tooling.preview.Preview
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeId
-import com.stratum.feature.program.SheetPosture
-import com.stratum.feature.program.sheetFlatHingeFixture
+import com.stratum.core.ui.component.PanePosture
+import com.stratum.core.ui.component.paneFlatHingeFixture
+import com.stratum.core.ui.component.LocalPanePosture
 
 private const val FOLD_PREVIEW_WIDTH_DP = 1200
 private const val FOLD_PREVIEW_HEIGHT_DP = 860
@@ -62,31 +63,31 @@ private fun ProgramSheetHingePreview() {
 
 @Composable
 internal fun ProgramSheetTwoPaneDashboardPreviewContent() {
-    FoldableSheetPreview(posture = SheetPosture.TwoPane(hinge = null), expandedLift = false)
+    FoldableSheetPreview(posture = PanePosture.TwoPane(hinge = null), expandedLift = false)
 }
 
 @Composable
 internal fun ProgramSheetTwoPaneLiftPreviewContent() {
-    FoldableSheetPreview(posture = SheetPosture.TwoPane(hinge = null), expandedLift = true)
+    FoldableSheetPreview(posture = PanePosture.TwoPane(hinge = null), expandedLift = true)
 }
 
 @Composable
 internal fun ProgramSheetSinglePanePreviewContent() {
-    FoldableSheetPreview(posture = SheetPosture.SinglePane, expandedLift = true)
+    FoldableSheetPreview(posture = PanePosture.SinglePane, expandedLift = true)
 }
 
 @Composable
 internal fun ProgramSheetHingePreviewContent() {
-    FoldableSheetPreview(posture = sheetFlatHingeFixture(), expandedLift = false)
+    FoldableSheetPreview(posture = paneFlatHingeFixture(), expandedLift = false)
 }
 
 @Composable
 private fun FoldableSheetPreview(
-    posture: SheetPosture,
+    posture: PanePosture,
     expandedLift: Boolean,
 ) {
     StratumTheme(themeId = StratumThemeId.Tonal) {
-        CompositionLocalProvider(LocalSheetPosture provides posture) {
+        CompositionLocalProvider(LocalPanePosture provides posture) {
             CreateProgramStepPreviewContent(
                 family = StratumThemeId.Tonal,
                 state = previewProgramSheetState(),

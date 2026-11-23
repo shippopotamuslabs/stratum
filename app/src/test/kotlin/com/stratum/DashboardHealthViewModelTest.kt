@@ -17,6 +17,7 @@ import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.application.dashboard.LoadDashboardUseCase
 import com.stratum.application.dashboard.LoadGraphDetailUseCase
+import com.stratum.application.dashboard.LoadMuscleDetailUseCase
 import com.stratum.application.dashboard.ObserveDashboardPreferencesUseCase
 import com.stratum.application.dashboard.ObserveDashboardStateUseCase
 import com.stratum.application.dashboard.SetDashboardBoardTabUseCase
@@ -303,6 +304,11 @@ class DashboardHealthViewModelTest {
                 muscleWeeklyOutcomeIndexRepository = FakeMuscleWeeklyOutcomeIndexRepository(),
                 liftRepository = FakeLiftRepository(),
                 trainingLogRepository = FakeTrainingLogRepository(),
+            ),
+            loadMuscleDetail = LoadMuscleDetailUseCase(
+                trainingLogRepository = FakeTrainingLogRepository(),
+                liftRepository = FakeLiftRepository(),
+                programRepository = FakeProgramRepository(program),
             ),
             setDashboardBoardTab = SetDashboardBoardTabUseCase(
                 dashboardPreferences,

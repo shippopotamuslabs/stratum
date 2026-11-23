@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.component.PanePosture
 import com.stratum.core.ui.component.TrendPointUi
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -303,8 +304,23 @@ private fun HealthPagerCardPreview(
 @Composable
 internal fun DashboardScreenPreviewContent(
     health: DashboardHealthUiState = DashboardHealthUiState(),
+    selectedTab: DashboardBoardTabUi = DashboardBoardTabUi.Muscles,
+    posture: PanePosture = PanePosture.SinglePane,
+    pane: DashboardPaneUiState = DashboardPaneUiState(),
 ) {
     DashboardScreen(
+        selectedTab = selectedTab,
+        twoPane = DashboardTwoPaneSlots(
+            posture = posture,
+            pane = pane,
+            liftDetailPane = { _, listState ->
+                DashboardLiftPane(
+                    state = previewLiftPaneState(),
+                    listState = listState,
+                    onSessionExpandedToggled = {},
+                )
+            },
+        ),
         state = DashboardBoardUiState.Loaded(
             windowWeeks = 13,
             // Ordered by sets/wk descending (matches LoadDashboardUseCase).
@@ -584,4 +600,86 @@ private fun flatVolumeSeries(): List<TrendPointUi> =
     listOf(
         TrendPointUi(0, 10f), TrendPointUi(1, 9f), TrendPointUi(2, 11f),
         TrendPointUi(3, 10f), TrendPointUi(4, 10f),
+    )
+
+/** Muscle pane fixture for the two-pane Dashboard (STR-331): Chest selected. */
+internal fun previewMusclePaneState(): DashboardPaneUiState =
+    DashboardPaneUiState(
+        selection = DashboardPaneSelectionUi.Muscle("Chest"),
+        muscleDetail = MuscleDetailPaneUiState.Loaded(
+            muscleKey = "Chest",
+            lifts = listOf(
+                MuscleDetailLiftUi("bench", "Bench Press", "6 sets/wk", isPrimary = true, badge = TrendBadge.Up),
+                MuscleDetailLiftUi("incline", "Incline DB Press", "4 sets/wk", isPrimary = true, badge = TrendBadge.Flat),
+                MuscleDetailLiftUi("fly", "Cable Fly", "3 sets/wk", isPrimary = true, badge = TrendBadge.Unknown),
+                MuscleDetailLiftUi("dip", "Dip", "1.5 sets/wk", isPrimary = false, badge = TrendBadge.Down),
+            ),
+            recentSessions = listOf(
+                MuscleDetailSessionUi(
+                    sessionId = "s3",
+                    dateText = "Mon, Nov 16",
+                    workoutLabel = "Push A",
+                    topSets = listOf(
+                        MuscleDetailTopSetUi("Bench Press", "225 lb × 6", rir = 1),
+                        MuscleDetailTopSetUi("Cable Fly", "40 lb × 14", rir = 2),
+                    ),
+                ),
+                MuscleDetailSessionUi(
+                    sessionId = "s2",
+                    dateText = "Thu, Nov 12",
+                    workoutLabel = "Push B",
+                    topSets = listOf(
+                        MuscleDetailTopSetUi("Incline DB Press", "80 lb × 9", rir = 2),
+                        MuscleDetailTopSetUi("Dip", "BW × 12", rir = null),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+/** Lift pane fixture for the two-pane Dashboard (STR-331): Bench Press selected. */
+internal fun previewLiftPaneSelection(): DashboardPaneUiState =
+    DashboardPaneUiState(selection = DashboardPaneSelectionUi.Lift("bench"))
+
+internal fun previewLiftPaneState(): com.stratum.liftconfig.LiftInformationUiState =
+    com.stratum.liftconfig.LiftInformationUiState(
+        liftId = "bench",
+        liftName = "Bench Press",
+        personalRecord = com.stratum.liftconfig.LiftPrUi(
+            dateText = "Nov 16, 2026",
+            weightRepsText = "225 lb × 6",
+            rir = 1,
+            e1rmText = "262 lb",
+        ),
+        historySessions = listOf(
+            com.stratum.liftconfig.LiftHistorySessionUi(
+                sessionId = "s3",
+                dateText = "Nov 16, 2026",
+                workoutLabel = "Push A",
+                bestSetText = "225 lb × 6",
+                sets = emptyList(),
+                expanded = false,
+            ),
+            com.stratum.liftconfig.LiftHistorySessionUi(
+                sessionId = "s1",
+                dateText = "Nov 9, 2026",
+                workoutLabel = "Push A",
+                bestSetText = "220 lb × 6",
+                sets = emptyList(),
+                expanded = false,
+            ),
+        ),
+        details = com.stratum.liftconfig.LiftDetailsEditorState(
+            primaryMuscles = listOf(
+                com.stratum.core.ui.component.StratumMuscleFilterCardState(
+                    com.stratum.domain.onboarding.MuscleGroup.Chest,
+                    "Chest",
+                ),
+            ),
+            fatigueLabel = "High",
+            loadTypeLabel = "Weighted",
+            equipment = "Barbell",
+            categoryLabel = "Chest compound",
+            defaultRestLabel = "3 min",
+        ),
     )

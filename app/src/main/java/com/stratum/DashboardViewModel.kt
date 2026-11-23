@@ -8,6 +8,8 @@ import com.stratum.application.dashboard.DashboardPreferenceResult
 import com.stratum.application.dashboard.LoadDashboardResult
 import com.stratum.application.dashboard.LoadGraphDetailResult
 import com.stratum.application.dashboard.LoadGraphDetailUseCase
+import com.stratum.application.dashboard.LoadMuscleDetailResult
+import com.stratum.application.dashboard.LoadMuscleDetailUseCase
 import com.stratum.application.dashboard.ObserveDashboardStateUseCase
 import com.stratum.application.dashboard.SetDashboardBoardTabUseCase
 import com.stratum.application.healthconnect.HEALTH_CONNECT_METRICS_TAG
@@ -48,9 +50,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transform
+import kotlinx.coroutines.flow.transformLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.withIndex
 import kotlinx.coroutines.launch
 
@@ -58,6 +64,7 @@ import kotlinx.coroutines.launch
 class DashboardViewModel(
     observeDashboardState: ObserveDashboardStateUseCase,
     private val loadGraphDetail: LoadGraphDetailUseCase,
+    private val loadMuscleDetail: LoadMuscleDetailUseCase,
     private val setDashboardBoardTab: SetDashboardBoardTabUseCase,
     private val requestCloudSync: RequestCloudSyncUseCase,
     private val diagnosticDrain: DiagnosticDrain,
@@ -77,12 +84,14 @@ class DashboardViewModel(
     constructor(
         observeDashboardState: ObserveDashboardStateUseCase,
         loadGraphDetail: LoadGraphDetailUseCase,
+        loadMuscleDetail: LoadMuscleDetailUseCase,
         setDashboardBoardTab: SetDashboardBoardTabUseCase,
         requestCloudSync: RequestCloudSyncUseCase,
         diagnosticDrain: DiagnosticDrain,
     ) : this(
         observeDashboardState,
         loadGraphDetail,
+        loadMuscleDetail,
         setDashboardBoardTab,
         requestCloudSync,
         diagnosticDrain,
@@ -152,23 +161,100 @@ class DashboardViewModel(
         }
 
     /**
+     * Two-pane detail selection (STR-331). Lives for the ViewModel's lifetime, so it survives
+     * folding and unfolding; only presentation keys are held.
+     */
+    private val paneSelection = MutableStateFlow(PaneSelection())
+
+    /**
+     * Muscle detail for the right pane. Loads only while the pane is on screen, reloads when the
+     * board reloads or the display unit changes, and keeps the last loaded muscle visible while
+     * it refreshes the same muscle (no Loading flash).
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val muscleDetail: StateFlow<MuscleDetailPaneUiState> = run {
+        var lastKey: String? = null
+        combine(paneSelection, boardParts) { selection, parts ->
+            if (!selection.paneVisible) return@combine null
+            val key = selection.muscleKey ?: parts.firstMuscleKey() ?: return@combine null
+            MuscleDetailRequest(key, parts.generation, parts.unitIsLb, selection.retry)
+        }
+            .filterNotNull()
+            .distinctUntilChanged()
+            .transformLatest { request ->
+                if (request.muscleKey != lastKey) emit(MuscleDetailPaneUiState.Loading)
+                lastKey = request.muscleKey
+                val muscle = runCatching { MuscleGroup.valueOf(request.muscleKey) }.getOrNull()
+                if (muscle == null) {
+                    emit(MuscleDetailPaneUiState.Error)
+                    return@transformLatest
+                }
+                when (val result = loadMuscleDetail(muscle, now = clock())) {
+                    is LoadMuscleDetailResult.Loaded -> {
+                        val unit = if (request.unitIsLb) Weight.WeightUnit.Lb else Weight.WeightUnit.Kg
+                        emit(result.detail.toPaneUi(displayUnit = unit, zone = zone))
+                    }
+                    is LoadMuscleDetailResult.Failed -> {
+                        diagnosticDrain.drain(result.diagnostics)
+                        // A failed load must not keep a stale muscle on screen next time.
+                        lastKey = null
+                        emit(MuscleDetailPaneUiState.Error)
+                    }
+                }
+            }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, MuscleDetailPaneUiState.Loading)
+    }
+
+    private val paneView: Flow<DashboardPaneUiState> =
+        combine(paneSelection, boardParts, muscleDetail) { selection, parts, detail ->
+            DashboardPaneUiState(
+                selection = selection.resolve(parts),
+                muscleDetail = detail,
+            )
+        }
+
+    /**
      * The single public dashboard state (STR-208 stage 2). Board composition (board + health +
      * tab + unit) is owned by [ObserveDashboardStateUseCase] — including reloads on explicit
      * [load], on sync busy → Idle, and on the health-enable rising edge. Transient presentation
-     * holders (refreshing, graph detail) are combined here. No domain model is cached in
-     * ViewModel fields: the interactor flow is mapped to presentation before [stateIn], and the
-     * graph-detail cache holds only precomputed presentation [GraphDetailUiState.Ready] variants.
+     * holders (refreshing, graph detail, two-pane selection) are combined here. No domain model
+     * is cached in ViewModel fields: the interactor flow is mapped to presentation before
+     * [stateIn], and the graph-detail cache holds only precomputed presentation
+     * [GraphDetailUiState.Ready] variants.
      */
     val uiState: StateFlow<DashboardUiState> =
-        combine(boardParts, _isRefreshing, detailView) { parts, refreshing, detail ->
+        combine(boardParts, _isRefreshing, detailView, paneView) { parts, refreshing, detail, pane ->
             DashboardUiState(
                 board = parts.board,
                 health = parts.health,
                 graphDetail = detail,
                 selectedTab = parts.tab,
                 isRefreshing = refreshing,
+                pane = pane,
             )
         }.stateIn(viewModelScope, SharingStarted.Eagerly, DashboardUiState())
+
+    /** Two-pane: show [muscleKey] in the detail pane (STR-331). */
+    fun selectMuscle(muscleKey: String) {
+        paneSelection.update { it.copy(muscleKey = muscleKey, showLift = false) }
+    }
+
+    /** Two-pane: show [liftId] in the detail pane (STR-331). */
+    fun selectLift(liftId: String) {
+        paneSelection.update { it.copy(liftId = liftId, showLift = true) }
+    }
+
+    /**
+     * The detail pane entered or left the screen (posture change). Muscle detail loads only while
+     * it is visible, so the folded phone layout does no extra work.
+     */
+    fun setDetailPaneVisible(visible: Boolean) {
+        paneSelection.update { it.copy(paneVisible = visible) }
+    }
+
+    fun retryMuscleDetail() {
+        paneSelection.update { it.copy(retry = it.retry + 1) }
+    }
 
     /**
      * Reloads the dashboard. Called on init (via the eagerly-started pipeline), after cloud
@@ -378,13 +464,39 @@ class DashboardViewModel(
         )
     }
 
+    /** Presentation keys for the two-pane selection. [muscleKey] null = first muscle card. */
+    private data class PaneSelection(
+        val muscleKey: String? = null,
+        val liftId: String? = null,
+        val showLift: Boolean = false,
+        val paneVisible: Boolean = false,
+        val retry: Int = 0,
+    ) {
+        fun resolve(parts: BoardParts): DashboardPaneSelectionUi {
+            if (showLift && liftId != null) return DashboardPaneSelectionUi.Lift(liftId)
+            val key = muscleKey ?: parts.firstMuscleKey() ?: return DashboardPaneSelectionUi.None
+            return DashboardPaneSelectionUi.Muscle(key)
+        }
+    }
+
+    private data class MuscleDetailRequest(
+        val muscleKey: String,
+        val generation: Int,
+        val unitIsLb: Boolean,
+        val retry: Int,
+    )
+
     private data class BoardParts(
         val board: DashboardBoardUiState = DashboardBoardUiState.Loading,
         val health: DashboardHealthUiState = DashboardHealthUiState(),
         val tab: DashboardBoardTabUi = DashboardBoardTabUi.Muscles,
         val unitIsLb: Boolean = true,
         val generation: Int = -1,
-    )
+    ) {
+        /** Default two-pane selection: the first muscle card. */
+        fun firstMuscleKey(): String? =
+            (board as? DashboardBoardUiState.Loaded)?.muscles?.firstOrNull()?.muscleKey
+    }
 
     /**
      * Presentation-only graph-detail cache: the retry request key, every precomputed Ready
@@ -421,6 +533,8 @@ data class DashboardUiState(
     val graphDetail: GraphDetailUiState = GraphDetailUiState.Hidden,
     val selectedTab: DashboardBoardTabUi = DashboardBoardTabUi.Muscles,
     val isRefreshing: Boolean = false,
+    /** Two-pane detail (STR-331); ignored by the single-pane layout. */
+    val pane: DashboardPaneUiState = DashboardPaneUiState(),
 )
 
 /**
