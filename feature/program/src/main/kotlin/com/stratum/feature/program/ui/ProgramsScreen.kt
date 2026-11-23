@@ -15,6 +15,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -71,6 +72,8 @@ import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
+import com.stratum.core.ui.component.PanePosture
+import com.stratum.core.ui.component.rememberPanePosture
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.rememberGlassChromePadding
@@ -172,73 +175,78 @@ internal fun ProgramsScreen(
             }
         },
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(programsScrollState)
-                    .padding(horizontal = StratumSpacing.s16)
-                    .padding(
-                        top = StratumSpacing.s16 + chrome.top,
-                        bottom =
-                            StratumSpacing.s16 +
-                                (if (activeWorkoutBar != null) 96.dp else 0.dp) +
-                                chrome.bottom,
+        val hasActiveWorkout = activeWorkoutBar != null
+        val onPendingStart: (ProgramsStartAction) -> Unit = { action -> pendingStartAction = action }
+        val onPendingUnskip: (String, String) -> Unit = { workoutId, workoutName ->
+            pendingUnskipWorkoutId = workoutId
+            pendingUnskipWorkoutName = workoutName
+        }
+        val startActions: @Composable () -> Unit = {
+            if (!isPreviewMode) {
+                ProgramsStartActions(
+                    showCheckInBanner = showCheckInBanner,
+                    hasActiveWorkout = hasActiveWorkout,
+                    callbacks = callbacks,
+                    onCheckInBannerClick = onCheckInBannerClick,
+                    onCheckInSkipClick = onCheckInSkipClick,
+                    onPendingStart = onPendingStart,
+                )
+            }
+        }
+        val topPadding = StratumSpacing.s16 + chrome.top
+        val bottomPadding =
+            StratumSpacing.s16 +
+                (if (hasActiveWorkout) 96.dp else 0.dp) +
+                chrome.bottom
+        // STR-332: unfolded (flat fold or expanded width) the loaded program splits into
+        // week | day detail. Folded, half-opened, and narrow windows keep the single pane.
+        val posture = rememberPanePosture()
+        if (posture is PanePosture.TwoPane && state is ProgramsUiState.Loaded) {
+            ProgramsTwoPane(
+                posture = posture,
+                state = state,
+                callbacks = callbacks,
+                listScrollState = programsScrollState,
+                contentPadding =
+                    PaddingValues(
+                        start = StratumSpacing.s16,
+                        end = StratumSpacing.s16,
+                        top = topPadding,
+                        bottom = bottomPadding,
                     ),
-                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
-            ) {
-                if (!isPreviewMode) {
-                    if (showCheckInBanner) {
-                        CheckInBanner(
-                            onTap = onCheckInBannerClick,
-                            onSkip = onCheckInSkipClick,
-                        )
-                    }
-                    val hasActiveWorkout = activeWorkoutBar != null
-                    // Stacked CTA pair: 8dp within the pair (Compose Gospel), not the
-                    // 16dp section rhythm of the surrounding column.
-                    Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
-                        StratumButton(
-                            text = stringResource(R.string.programs_start_next_workout),
-                            onClick = {
-                                if (hasActiveWorkout) {
-                                    pendingStartAction = ProgramsStartAction.StartNextWorkout
-                                } else {
-                                    callbacks.onStartNextWorkoutClick()
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        StratumOutlinedButton(
-                            text = stringResource(R.string.programs_start_empty_workout),
-                            onClick = {
-                                if (hasActiveWorkout) {
-                                    pendingStartAction = ProgramsStartAction.StartEmptyWorkout
-                                } else {
-                                    callbacks.onStartEmptyWorkoutClick()
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                }
+                header = startActions,
+                onSwapLiftClick = onSwapLiftClick,
+                isPreviewMode = isPreviewMode,
+                hasActiveWorkout = hasActiveWorkout,
+                onPendingStart = onPendingStart,
+                onPendingUnskip = onPendingUnskip,
+            )
+        } else {
+            Box(modifier = Modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(programsScrollState)
+                        .padding(horizontal = StratumSpacing.s16)
+                        .padding(top = topPadding, bottom = bottomPadding),
+                    verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
+                ) {
+                    startActions()
 
-                when (state) {
-                    is ProgramsUiState.Empty ->
-                        StratumText(text = stringResource(R.string.programs_empty), muted = true)
-                    is ProgramsUiState.Loaded -> LoadedProgramContent(
-                        state = state,
-                        callbacks = callbacks,
-                        onSwapLiftClick = onSwapLiftClick,
-                        isPreviewMode = isPreviewMode,
-                        hasActiveWorkout = activeWorkoutBar != null,
-                        expandedWorkoutId = state.expandedWorkoutId,
-                        onPendingStart = { action -> pendingStartAction = action },
-                        onPendingUnskip = { workoutId, workoutName ->
-                            pendingUnskipWorkoutId = workoutId
-                            pendingUnskipWorkoutName = workoutName
-                        },
-                    )
+                    when (state) {
+                        is ProgramsUiState.Empty ->
+                            StratumText(text = stringResource(R.string.programs_empty), muted = true)
+                        is ProgramsUiState.Loaded -> LoadedProgramContent(
+                            state = state,
+                            callbacks = callbacks,
+                            onSwapLiftClick = onSwapLiftClick,
+                            isPreviewMode = isPreviewMode,
+                            hasActiveWorkout = hasActiveWorkout,
+                            expandedWorkoutId = state.expandedWorkoutId,
+                            onPendingStart = onPendingStart,
+                            onPendingUnskip = onPendingUnskip,
+                        )
+                    }
                 }
             }
         }
@@ -295,6 +303,53 @@ internal fun ProgramsScreen(
                 onDismiss = { showOptionsSheet = false },
             )
         }
+    }
+}
+
+/**
+ * Check-in banner plus the Start Next / Start Empty pair. Emits into the caller's column
+ * so the single pane keeps its 16dp section rhythm; the two-pane week list reuses it.
+ */
+@Composable
+internal fun ProgramsStartActions(
+    showCheckInBanner: Boolean,
+    hasActiveWorkout: Boolean,
+    callbacks: ProgramsScreenCallbacks,
+    onCheckInBannerClick: () -> Unit,
+    onCheckInSkipClick: () -> Unit,
+    onPendingStart: (ProgramsStartAction) -> Unit,
+) {
+    if (showCheckInBanner) {
+        CheckInBanner(
+            onTap = onCheckInBannerClick,
+            onSkip = onCheckInSkipClick,
+        )
+    }
+    // Stacked CTA pair: 8dp within the pair (Compose Gospel), not the
+    // 16dp section rhythm of the surrounding column.
+    Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
+        StratumButton(
+            text = stringResource(R.string.programs_start_next_workout),
+            onClick = {
+                if (hasActiveWorkout) {
+                    onPendingStart(ProgramsStartAction.StartNextWorkout)
+                } else {
+                    callbacks.onStartNextWorkoutClick()
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        StratumOutlinedButton(
+            text = stringResource(R.string.programs_start_empty_workout),
+            onClick = {
+                if (hasActiveWorkout) {
+                    onPendingStart(ProgramsStartAction.StartEmptyWorkout)
+                } else {
+                    callbacks.onStartEmptyWorkoutClick()
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -544,23 +599,7 @@ private fun LoadedProgramContent(
     onPendingStart: (ProgramsStartAction) -> Unit,
     onPendingUnskip: (workoutId: String, workoutName: String) -> Unit,
 ) {
-    if (state.upperVolumeByMuscle.isNotEmpty() || state.lowerVolumeByMuscle.isNotEmpty()) {
-        val initialTier = if (state.upperVolumeByMuscle.isEmpty() && state.lowerVolumeByMuscle.isNotEmpty()) {
-            StratumVolumeBodyTier.Lower
-        } else {
-            StratumVolumeBodyTier.Upper
-        }
-        StratumMuscleVolumeRow(
-            upperCards = state.upperVolumeByMuscle,
-            lowerCards = state.lowerVolumeByMuscle,
-            initialTier = initialTier,
-        )
-    }
-
-    StratumText(
-        text = state.program.name,
-        style = StratumThemeAccessor.typography.titleLarge,
-    )
+    ProgramSummaryHeader(state = state)
 
     state.scheduleItems.forEach { item ->
         when (item) {
@@ -581,21 +620,11 @@ private fun LoadedProgramContent(
                             if (expanded) item.workout.workoutId else null,
                         )
                     },
-                    onStartWorkoutClick = { workoutId ->
-                        if (hasActiveWorkout) {
-                            onPendingStart(ProgramsStartAction.StartWorkout(workoutId))
-                        } else {
-                            callbacks.onStartWorkoutClick(workoutId)
-                        }
-                    },
+                    onStartWorkoutClick =
+                        startWorkoutAction(callbacks, hasActiveWorkout, onPendingStart),
                     onEditWorkoutClick = callbacks.onEditWorkoutClick,
-                    onSkipWorkoutCheckedChange = { workoutId, checked ->
-                        if (checked) {
-                            callbacks.onSkipWorkoutCheckedChange(workoutId, true)
-                        } else {
-                            onPendingUnskip(workoutId, item.workout.name)
-                        }
-                    },
+                    onSkipWorkoutCheckedChange =
+                        skipWorkoutAction(callbacks, item.workout.name, onPendingUnskip),
                     onSwapLiftClick = onSwapLiftClick,
                     isPreviewMode = isPreviewMode,
                 )
@@ -603,10 +632,59 @@ private fun LoadedProgramContent(
     }
 }
 
+/** Volume strip (Upper / Lower toggle and muscle chips) and the program name. */
 @Composable
-private fun RestDayRow(
+internal fun ProgramSummaryHeader(state: ProgramsUiState.Loaded) {
+    if (state.upperVolumeByMuscle.isNotEmpty() || state.lowerVolumeByMuscle.isNotEmpty()) {
+        val initialTier = if (state.upperVolumeByMuscle.isEmpty() && state.lowerVolumeByMuscle.isNotEmpty()) {
+            StratumVolumeBodyTier.Lower
+        } else {
+            StratumVolumeBodyTier.Upper
+        }
+        StratumMuscleVolumeRow(
+            upperCards = state.upperVolumeByMuscle,
+            lowerCards = state.lowerVolumeByMuscle,
+            initialTier = initialTier,
+        )
+    }
+
+    StratumText(
+        text = state.program.name,
+        style = StratumThemeAccessor.typography.titleLarge,
+    )
+}
+
+/** Start a day, or ask first when a live session would be discarded. */
+internal fun startWorkoutAction(
+    callbacks: ProgramsScreenCallbacks,
+    hasActiveWorkout: Boolean,
+    onPendingStart: (ProgramsStartAction) -> Unit,
+): (String) -> Unit = { workoutId ->
+    if (hasActiveWorkout) {
+        onPendingStart(ProgramsStartAction.StartWorkout(workoutId))
+    } else {
+        callbacks.onStartWorkoutClick(workoutId)
+    }
+}
+
+/** Skip persists at once; unskip asks first. */
+internal fun skipWorkoutAction(
+    callbacks: ProgramsScreenCallbacks,
+    workoutName: String,
+    onPendingUnskip: (workoutId: String, workoutName: String) -> Unit,
+): (String, Boolean) -> Unit = { workoutId, checked ->
+    if (checked) {
+        callbacks.onSkipWorkoutCheckedChange(workoutId, true)
+    } else {
+        onPendingUnskip(workoutId, workoutName)
+    }
+}
+
+@Composable
+internal fun RestDayRow(
     isCompleted: Boolean = false,
     onCheckedChange: (Boolean) -> Unit,
+    alwaysMuted: Boolean = false,
 ) {
     Row(
         modifier =
@@ -625,7 +703,7 @@ private fun RestDayRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        StratumText(text = stringResource(R.string.programs_rest_day), muted = isCompleted)
+        StratumText(text = stringResource(R.string.programs_rest_day), muted = isCompleted || alwaysMuted)
         StratumCheckbox(
             checked = isCompleted,
             onCheckedChange = onCheckedChange,
@@ -636,7 +714,7 @@ private fun RestDayRow(
 private val WorkoutCardContentPadding = 20.dp
 
 /** Day-row height shared by workout cards and the Rest Day row. */
-private val WorkoutCardHeaderMinHeight = 72.dp
+internal val WorkoutCardHeaderMinHeight = 72.dp
 
 @Composable
 internal fun WorkoutCard(
@@ -649,6 +727,7 @@ internal fun WorkoutCard(
     onSwapLiftClick: (String, WorkoutLiftLineState) -> Unit,
     modifier: Modifier = Modifier,
     isPreviewMode: Boolean = false,
+    collapsible: Boolean = true,
 ) {
     val sortedLifts = workout.lifts.sortedBy { lift -> lift.position }
     val chevronRotation by animateFloatAsState(
@@ -694,30 +773,41 @@ internal fun WorkoutCard(
             // its target is the full header band, not the 28dp content row.
             // The band floors at 72dp so workout rows match the Rest Day row,
             // whose height the 48dp checkbox plus s12 padding sets.
-            Row(
-                modifier =
+            // The two-pane detail pane shows the day opened full (collapsible = false):
+            // no chevron, and the header no longer toggles.
+            val expandToggle =
+                if (collapsible) {
                     Modifier
-                        .weight(1f)
                         .clickable(
                             interactionSource = headerInteractionSource,
                             indication = null,
                             onClick = { onExpandedChange(!expanded) },
                         )
                         .semantics { contentDescription = expandCollapseLabel }
+                } else {
+                    Modifier
+                }
+            Row(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .then(expandToggle)
                         .heightIn(min = WorkoutCardHeaderMinHeight)
                         .padding(vertical = StratumSpacing.s16),
                 horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    painter = painterResource(CoreUiR.drawable.ic_chevron_down),
-                    contentDescription = null,
-                    modifier =
-                        Modifier
-                            .size(WorkoutChevronSize)
-                            .rotate(chevronRotation),
-                    tint = StratumThemeAccessor.colors.textMuted,
-                )
+                if (collapsible) {
+                    Icon(
+                        painter = painterResource(CoreUiR.drawable.ic_chevron_down),
+                        contentDescription = null,
+                        modifier =
+                            Modifier
+                                .size(WorkoutChevronSize)
+                                .rotate(chevronRotation),
+                        tint = StratumThemeAccessor.colors.textMuted,
+                    )
+                }
                 StratumText(
                     text = workout.name,
                     style = StratumThemeAccessor.typography.titleLarge,

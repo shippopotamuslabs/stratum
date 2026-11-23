@@ -25,6 +25,11 @@ sealed interface ProgramsUiState {
         val scheduleItems: List<ScheduleItemState>,
         /** Last expanded schedule workout card id from DataStore; null means all cards collapsed. */
         val expandedWorkoutId: String? = null,
+        /**
+         * Day picked in the two-pane Program screen this session (in memory only);
+         * null means the default, the next workout day.
+         */
+        val selectedWorkoutId: String? = null,
         override val activeBar: MinimizedWorkoutState? = null,
     ) : ProgramsUiState {
         override val status: Status = Status.Loaded

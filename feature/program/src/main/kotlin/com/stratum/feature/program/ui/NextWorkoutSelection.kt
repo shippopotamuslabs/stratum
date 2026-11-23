@@ -16,3 +16,20 @@ internal fun findNextWorkoutId(scheduleItems: List<ScheduleItemState>): String? 
         }
         ?.workout
         ?.workoutId
+
+/**
+ * Day shown in the two-pane detail pane. Keeps [selectedWorkoutId] while that workout is
+ * still on the schedule; otherwise falls back to the next workout day, then to the first
+ * workout day. Null only when the schedule has no workout days.
+ */
+internal fun resolveSelectedWorkoutId(
+    scheduleItems: List<ScheduleItemState>,
+    selectedWorkoutId: String?,
+): String? {
+    val workoutIds =
+        scheduleItems
+            .filterIsInstance<ScheduleItemState.Workout>()
+            .map { item -> item.workout.workoutId }
+    if (selectedWorkoutId != null && selectedWorkoutId in workoutIds) return selectedWorkoutId
+    return findNextWorkoutId(scheduleItems) ?: workoutIds.firstOrNull()
+}
