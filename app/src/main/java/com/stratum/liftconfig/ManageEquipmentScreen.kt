@@ -275,7 +275,7 @@ fun ManageEquipmentScreen(
 
     val pendingDelete = state.pendingDelete
     if (pendingDelete != null) {
-        EquipmentDeleteConfirmDialog(
+        EquipmentDeleteSheet(
             name = pendingDelete.name,
             onConfirm = actions.onConfirmDelete,
             onDismiss = actions.onDismissDelete,

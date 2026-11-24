@@ -173,7 +173,7 @@ fun EquipmentIncrementsRoute(
     )
     if (pendingDelete != null) {
         val pending = pendingDelete!!
-        EquipmentDeleteConfirmDialog(
+        EquipmentDeleteSheet(
             name = pending.name,
             onConfirm = viewModel::deleteEquipment,
             onDismiss = viewModel::onDismissDelete,
