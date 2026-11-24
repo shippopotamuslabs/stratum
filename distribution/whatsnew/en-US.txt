@@ -1,1 +1,1 @@
-Unfolded foldables get two-pane Dashboard and Program screens, and importing settings now opens the program you imported.
+Deleting equipment now opens a tall sheet listing every linked lift and workout, with a full-screen picker for choosing the replacement.
