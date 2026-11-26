@@ -1,1 +1,1 @@
-Deleting equipment now opens a tall sheet listing every linked lift and workout, with a full-screen picker for choosing the replacement.
+Folding and unfolding now keeps your place in the workout. The lift list holds its scroll position in both directions, so the lift you were on stays on screen.
