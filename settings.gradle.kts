@@ -7,6 +7,15 @@ pluginManagement {
                 includeGroupByRegex("androidx.*")
             }
         }
+        // STR-298: Google's mirror of Maven Central, consulted before
+        // Central itself. repo.maven.apache.org rate-limits the shared
+        // egress IPs of hosted CI runners (HTTP 429 bursts that kill jobs
+        // during dependency resolution); the mirror serves identical
+        // content without that throttle, and Central stays as fallback.
+        maven {
+            name = "MavenCentralMirror"
+            url = uri("https://maven-central.storage-download.googleapis.com/maven2")
+        }
         mavenCentral()
         gradlePluginPortal()
     }
@@ -20,6 +29,11 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
+        // STR-298: Maven Central mirror first (see pluginManagement above).
+        maven {
+            name = "MavenCentralMirror"
+            url = uri("https://maven-central.storage-download.googleapis.com/maven2")
+        }
         mavenCentral()
     }
 }
