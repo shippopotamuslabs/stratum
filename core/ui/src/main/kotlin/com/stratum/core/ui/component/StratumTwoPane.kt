@@ -15,6 +15,11 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 /**
  * Single pane, or primary | hinge | detail. The hinge slot is not clickable. With no hinge
  * band the window splits in half.
+ *
+ * The primary call site never moves: every posture composes [primary] inside the same
+ * Row > Box slot, so state remembered inside the primary content (list scroll, drafts)
+ * survives fold and unfold (STR-336). Only the primary width and the trailing detail
+ * slot change with posture.
  */
 @Composable
 fun StratumTwoPane(
@@ -24,32 +29,30 @@ fun StratumTwoPane(
     primary: @Composable () -> Unit,
 ) {
     val split = posture as? PanePosture.TwoPane
-    if (split == null) {
-        Box(modifier = modifier.fillMaxSize()) { primary() }
-        return
-    }
-    val hinge = split.hinge
-    if (hinge == null) {
-        Row(modifier = modifier.fillMaxSize()) {
-            Box(modifier = Modifier.weight(1f).fillMaxHeight()) { primary() }
-            Box(modifier = Modifier.weight(1f).fillMaxHeight()) { detail() }
-        }
-        return
-    }
+    val hinge = split?.hinge
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val left = maxWidth * hinge.start
-        val gap = maxWidth * (hinge.end - hinge.start)
-        val right = maxWidth - left - gap
+        val primaryWidth =
+            when {
+                split == null -> maxWidth
+                hinge != null -> maxWidth * hinge.start
+                else -> maxWidth / 2
+            }
+        val gapWidth = if (hinge != null) maxWidth * (hinge.end - hinge.start) else maxWidth * 0
+        val detailWidth = maxWidth - primaryWidth - gapWidth
         Row(modifier = Modifier.fillMaxSize()) {
-            Box(modifier = Modifier.width(left).fillMaxHeight()) { primary() }
-            Spacer(
-                modifier =
-                    Modifier
-                        .width(gap)
-                        .fillMaxHeight()
-                        .background(StratumThemeAccessor.colors.surfaceSunken),
-            )
-            Box(modifier = Modifier.width(right).fillMaxHeight()) { detail() }
+            Box(modifier = Modifier.width(primaryWidth).fillMaxHeight()) { primary() }
+            if (split != null) {
+                if (hinge != null) {
+                    Spacer(
+                        modifier =
+                            Modifier
+                                .width(gapWidth)
+                                .fillMaxHeight()
+                                .background(StratumThemeAccessor.colors.surfaceSunken),
+                    )
+                }
+                Box(modifier = Modifier.width(detailWidth).fillMaxHeight()) { detail() }
+            }
         }
     }
 }
